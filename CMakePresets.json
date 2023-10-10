@@ -1,0 +1,101 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "base",
+            "hidden": true,
+            "binaryDir": "build/${presetName}"
+        },
+        {
+            "name": "debug",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            },
+            "inherits": [
+                "base"
+            ]
+        },
+        {
+            "name": "release",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            },
+            "inherits": [
+                "base"
+            ]
+        },
+        {
+            "name": "gcc",
+            "hidden": true,
+            "generator": "Unix Makefiles",
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "g++"
+            }
+        },
+        {
+            "name": "gcc/debug",
+            "inherits": [
+                "gcc",
+                "debug"
+            ]
+        },
+        {
+            "name": "gcc/release",
+            "generator": "Ninja",
+            "inherits": [
+                "gcc",
+                "release"
+            ]
+        },
+        {
+            "name": "msvc-17",
+            "hidden": true,
+            "generator": "Visual Studio 15 2017",
+            "inherits": [
+                "base"
+            ],
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "hostOS": [ "Windows" ]
+                }
+            }
+        },
+        {
+            "name": "x64/msvc-17",
+            "architecture": "x64",
+            "inherits": [
+                "msvc-17"
+            ]
+        },
+        {
+            "name": "x86/msvc-17",
+            "architecture": "Win32",
+            "inherits": [
+                "msvc-17"
+            ]
+        },
+        {
+            "name": "x64/msvc-22",
+            "generator": "Visual Studio 17 2022",
+            "architecture": "x64",
+            "inherits": [
+                "msvc-17"
+            ]
+        },
+        {
+            "name": "x86/msvc-22",
+            "generator": "Visual Studio 17 2022",
+            "architecture": "Win32",
+            "inherits": [
+                "msvc-17"
+            ]
+        }
+    ]
+}
