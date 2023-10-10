@@ -1,0 +1,44 @@
+name: Build and Test
+on: [push]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    name: ${{ matrix.name }}
+
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.name }}
+      cancel-in-progress: true
+    timeout-minutes: 10
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: Ubuntu
+            runner: ubuntu-latest
+            cmake_generator: "Unix Makefiles"
+            cmake_build_type: Debug
+            cmake_defines: -DNATIVE_STREAMING_ENABLE_TESTS=ON
+          - name: Windows
+            runner: windows-latest
+            cmake_generator: "Visual Studio 17 2022"
+            cmake_build_type: Debug
+            cmake_defines: -DNATIVE_STREAMING_ENABLE_TESTS=ON
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Configure
+        run: |
+          mkdir build
+          cd build
+          cmake -G "${{ matrix.cmake_generator }}" ${{ matrix.cmake_defines }} -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} ..
+
+      - name: Build
+        working-directory: build
+        run: cmake --build .
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure -C ${{ matrix.cmake_build_type }}
