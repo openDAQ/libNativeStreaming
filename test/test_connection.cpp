@@ -13,7 +13,9 @@ TEST_F(ConnectionTest, Connect)
                                            std::to_string(CONNECTION_PORT),
                                            CONNECTION_PATH,
                                            onNewClientSessionCallback,
-                                           onClientConnectFailedCallback,
+                                           onResolveFailedCallback,
+                                           onConnectFailedCallback,
+                                           onHandshakeFailedCallback,
                                            ioContextPtrClient,
                                            logCallback);
     client->connect();
@@ -37,7 +39,9 @@ TEST_F(ConnectionTest, ConnectCloseServerFirst)
                                            std::to_string(CONNECTION_PORT),
                                            CONNECTION_PATH,
                                            onNewClientSessionCallback,
-                                           onClientConnectFailedCallback,
+                                           onResolveFailedCallback,
+                                           onConnectFailedCallback,
+                                           onHandshakeFailedCallback,
                                            ioContextPtrClient,
                                            logCallback);
     client->connect();
@@ -61,7 +65,9 @@ TEST_F(ConnectionTest, ConnectCloseClientFirst)
                                            std::to_string(CONNECTION_PORT),
                                            CONNECTION_PATH,
                                            onNewClientSessionCallback,
-                                           onClientConnectFailedCallback,
+                                           onResolveFailedCallback,
+                                           onConnectFailedCallback,
+                                           onHandshakeFailedCallback,
                                            ioContextPtrClient,
                                            logCallback);
     client->connect();
@@ -85,7 +91,9 @@ TEST_F(ConnectionTest, Reconnect)
                                            std::to_string(CONNECTION_PORT),
                                            CONNECTION_PATH,
                                            onNewClientSessionCallback,
-                                           onClientConnectFailedCallback,
+                                           onResolveFailedCallback,
+                                           onConnectFailedCallback,
+                                           onHandshakeFailedCallback,
                                            ioContextPtrClient,
                                            logCallback);
     client->connect();
@@ -123,7 +131,9 @@ TEST_F(ConnectionTest, ServerReadErrorOnDisconnect)
                                            std::to_string(CONNECTION_PORT),
                                            CONNECTION_PATH,
                                            onNewClientSessionCallback,
-                                           onClientConnectFailedCallback,
+                                           onResolveFailedCallback,
+                                           onConnectFailedCallback,
+                                           onHandshakeFailedCallback,
                                            ioContextPtrClient,
                                            logCallback);
     client->connect();
@@ -157,7 +167,9 @@ TEST_F(ConnectionTest, ClientReadErrorOnDisconnect)
                                            std::to_string(CONNECTION_PORT),
                                            CONNECTION_PATH,
                                            onNewClientSessionCallback,
-                                           onClientConnectFailedCallback,
+                                           onResolveFailedCallback,
+                                           onConnectFailedCallback,
+                                           onHandshakeFailedCallback,
                                            ioContextPtrClient,
                                            logCallback);
     client->connect();
