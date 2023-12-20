@@ -61,8 +61,14 @@ public:
             clientDisconnectedPromise.set_value();
         };
 
-        onClientConnectFailedCallback = [this](const boost::system::error_code& ec)
-        { ADD_FAILURE() << "Client connection failed: " << ec.what(); };
+        onResolveFailedCallback = [this](const boost::system::error_code& ec)
+        { ADD_FAILURE() << "Resolve failed: " << ec.what(); };
+
+        onConnectFailedCallback = [this](const boost::system::error_code& ec)
+        { ADD_FAILURE() << "Connection failed: " << ec.what(); };
+
+        onHandshakeFailedCallback = [this](const boost::system::error_code& ec)
+        { ADD_FAILURE() << "Handshake failed: " << ec.what(); };
     }
 
 protected:
@@ -107,7 +113,9 @@ protected:
     std::future<void> clientDisconnectedFuture;
     OnCompleteCallback onClientSessionClosedCallback;
 
-    OnCompleteCallback onClientConnectFailedCallback;
+    OnCompleteCallback onConnectFailedCallback;
+    OnCompleteCallback onResolveFailedCallback;
+    OnCompleteCallback onHandshakeFailedCallback;
 };
 
 END_NAMESPACE_NATIVE_STREAMING

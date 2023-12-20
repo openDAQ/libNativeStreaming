@@ -46,7 +46,9 @@ protected:
                                           std::to_string(CONNECTION_PORT),
                                           CONNECTION_PATH,
                                           onNewClientSessionCallback,
-                                          onClientConnectFailedCallback,
+                                          onResolveFailedCallback,
+                                          onConnectFailedCallback,
+                                          onHandshakeFailedCallback,
                                           ioContextPtrClient,
                                           logCallback);
         client->connect();

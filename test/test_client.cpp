@@ -15,7 +15,9 @@ public:
         onUnusedSessionCallback = [](std::shared_ptr<Session>) {};
         clientConnectFailedPromise = std::promise<void>();
         clientConnectFailedFuture = clientConnectFailedPromise.get_future();
-        onClientConnectFailedCallback = [this](const boost::system::error_code&) { clientConnectFailedPromise.set_value(); };
+        onResolveFailedCallback = [this](const boost::system::error_code&) { clientConnectFailedPromise.set_value(); };
+        onConnectFailedCallback = [this](const boost::system::error_code&) { clientConnectFailedPromise.set_value(); };
+        onHandshakeFailedCallback = [this](const boost::system::error_code&) { clientConnectFailedPromise.set_value(); };
     }
 
     void TearDown() override
@@ -24,7 +26,9 @@ public:
 
     std::promise<void> clientConnectFailedPromise;
     std::future<void> clientConnectFailedFuture;
-    OnCompleteCallback onClientConnectFailedCallback;
+    OnCompleteCallback onResolveFailedCallback;
+    OnCompleteCallback onConnectFailedCallback;
+    OnCompleteCallback onHandshakeFailedCallback;
 
     /// Drops created session
     OnNewSessionCallback onUnusedSessionCallback;
@@ -36,7 +40,9 @@ TEST_F(ClientTest, Create)
                            std::to_string(CONNECTION_PORT),
                            CONNECTION_PATH,
                            onUnusedSessionCallback,
-                           onClientConnectFailedCallback,
+                           onResolveFailedCallback,
+                           onConnectFailedCallback,
+                           onHandshakeFailedCallback,
                            ioContextPtrClient,
                            logCallback));
 }
@@ -47,7 +53,9 @@ TEST_F(ClientTest, ConnectFailed)
                                            std::to_string(CONNECTION_PORT),
                                            CONNECTION_PATH,
                                            onUnusedSessionCallback,
-                                           onClientConnectFailedCallback,
+                                           onResolveFailedCallback,
+                                           onConnectFailedCallback,
+                                           onHandshakeFailedCallback,
                                            ioContextPtrClient,
                                            logCallback);
     client->connect();

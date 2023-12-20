@@ -29,7 +29,9 @@ public:
                     const std::string& port,
                     const std::string& path,
                     OnNewSessionCallback onNewSessionCallback,
-                    OnCompleteCallback onConnectionFailedCallback,
+                    OnCompleteCallback onResolveFailCallback,
+                    OnCompleteCallback onConnectFailCallback,
+                    OnCompleteCallback onHandshakeFailCallback,
                     std::shared_ptr<boost::asio::io_context> ioContextPtr,
                     LogCallback logCallback);
     ~Client();
@@ -84,8 +86,14 @@ private:
     /// @brief callback used to provide newly created Session to outside world, e.g. to protocol handler
     OnNewSessionCallback onNewSessionCallback;
 
+    /// @brief callback to be called if resolving address of remote server is failed
+    OnCompleteCallback onResolveFailCallback;
+
     /// @brief callback to be called if connection to remote server is failed
-    OnCompleteCallback onConnectionFailedCallback;
+    OnCompleteCallback onConnectFailCallback;
+
+    /// @brief callback to be called if handshake with a remote server is failed
+    OnCompleteCallback onHandshakeFailCallback;
 };
 
 END_NAMESPACE_NATIVE_STREAMING

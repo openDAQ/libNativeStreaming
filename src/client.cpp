@@ -7,7 +7,9 @@ Client::Client(const std::string& host,
                const std::string& port,
                const std::string& path,
                OnNewSessionCallback onNewSessionCallback,
-               OnCompleteCallback onConnectionFailedCallback,
+               OnCompleteCallback onResolveFailCallback,
+               OnCompleteCallback onConnectFailCallback,
+               OnCompleteCallback onHandshakeFailCallback,
                std::shared_ptr<boost::asio::io_context> ioContextPtr,
                LogCallback logCallback)
     : ioContextPtr(ioContextPtr)
@@ -17,7 +19,9 @@ Client::Client(const std::string& host,
     , path(path)
     , resolver(*ioContextPtr)
     , onNewSessionCallback(onNewSessionCallback)
-    , onConnectionFailedCallback(onConnectionFailedCallback)
+    , onResolveFailCallback(onConnectFailCallback)
+    , onConnectFailCallback(onConnectFailCallback)
+    , onHandshakeFailCallback(onConnectFailCallback)
 {
 }
 
@@ -45,7 +49,7 @@ void Client::onResolve(const boost::system::error_code& ec, boost::asio::ip::tcp
     if (ec)
     {
         NS_LOG_E("resolve failed {}", ec.message());
-        onConnectionFailedCallback(ec);
+        onResolveFailCallback(ec);
         return;
     }
 
@@ -65,7 +69,7 @@ void Client::onConnect(const boost::system::error_code& ec, std::shared_ptr<Webs
     if (ec)
     {
         NS_LOG_E("connect failed {}", ec.message());
-        onConnectionFailedCallback(ec);
+        onConnectFailCallback(ec);
         return;
     }
 
@@ -88,7 +92,7 @@ void Client::onUpgradeConnection(const boost::system::error_code& ec, std::share
     if (ec)
     {
         NS_LOG_E("handshake failed {}", ec.message());
-        onConnectionFailedCallback(ec);
+        onHandshakeFailCallback(ec);
         return;
     }
 
