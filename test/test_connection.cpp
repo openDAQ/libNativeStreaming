@@ -30,6 +30,32 @@ TEST_F(ConnectionTest, Connect)
     clientSession.reset();
 }
 
+TEST_F(ConnectionTest, ConnectIPv6)
+{
+    auto server = std::make_shared<Server>(onNewServerSessionCallback, ioContextPtrServer, logCallback);
+    server->start(CONNECTION_PORT);
+
+    auto client = std::make_shared<Client>("::1",
+                                           std::to_string(CONNECTION_PORT),
+                                           CONNECTION_PATH,
+                                           onNewClientSessionCallback,
+                                           onResolveFailedCallback,
+                                           onConnectFailedCallback,
+                                           onHandshakeFailedCallback,
+                                           ioContextPtrClient,
+                                           logCallback);
+    client->connect();
+
+    ASSERT_EQ(clientConnectedFuture.wait_for(timeout), std::future_status::ready);
+    ASSERT_EQ(serverConnectedFuture.wait_for(timeout), std::future_status::ready);
+
+    ASSERT_TRUE(serverSession.operator bool());
+    ASSERT_TRUE(clientSession.operator bool());
+
+    serverSession.reset();
+    clientSession.reset();
+}
+
 TEST_F(ConnectionTest, ConnectCloseServerFirst)
 {
     auto server = std::make_shared<Server>(onNewServerSessionCallback, ioContextPtrServer, logCallback);
