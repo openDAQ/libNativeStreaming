@@ -1,2 +1,9 @@
 ## v1.0.0
  - Initial tag
+
+## v1.0.1
+ - Add different callbacks for Client resolve/connect/handshake errors
+ - Add support for IPv6 connection
+ - Increase size of websocket write buffer
+ - Add heartbeat mechanism based on websocket ping/pong datagrams
+ - Fix cmake build with pre-installed Boost
