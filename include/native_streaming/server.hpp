@@ -44,9 +44,12 @@ public:
 
 private:
     /// @brief callback called when new Tcp connection acception finished by server
+    /// @param tcpAcceptor Tcp acceptor which accepts connection
     /// @param ec error_code object indicates connection acception failed
     /// @param socket tcp socket associated with new connection
-    void onAcceptTcpConnection(const boost::system::error_code& ec, boost::asio::ip::tcp::socket&& socket);
+    void onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
+                               const boost::system::error_code& ec,
+                               boost::asio::ip::tcp::socket&& socket);
 
     /// @brief callback called when web-socket handshake finished for new connection
     /// @param ec error_code object indicates handshake failure
@@ -75,9 +78,11 @@ private:
     /// @brief callback used to provide newly created Session to outside world, e.g. to protocol handler
     OnNewSessionCallback onNewSessionCallback;
 
-    // TODO add acceptor IPv6
     /// Tcp connection acceptor binded to IPv4
     boost::asio::ip::tcp::acceptor tcpAcceptorV4;
+
+    /// Tcp connection acceptor binded to IPv6
+    boost::asio::ip::tcp::acceptor tcpAcceptorV6;
 };
 
 END_NAMESPACE_NATIVE_STREAMING

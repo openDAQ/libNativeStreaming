@@ -1,5 +1,6 @@
 #include <native_streaming/server.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/ip/v6_only.hpp>
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
@@ -8,6 +9,7 @@ Server::Server(OnNewSessionCallback onNewSessionCallback, std::shared_ptr<boost:
     , logCallback(logCallback)
     , onNewSessionCallback(onNewSessionCallback)
     , tcpAcceptorV4(*ioContextPtr)
+    , tcpAcceptorV6(*ioContextPtr)
 {
 }
 
@@ -26,7 +28,7 @@ boost::system::error_code Server::start(uint16_t port)
     tcpAcceptorV4.open(boost::asio::ip::tcp::v4(), ec);
     if (ec)
     {
-        NS_LOG_E("Server failed to initialize acceptor: {}", ec.message());
+        NS_LOG_E("Server failed to initialize tcp V4 acceptor: {}", ec.message());
         return ec;
     }
     try
@@ -41,7 +43,27 @@ boost::system::error_code Server::start(uint16_t port)
         return e.code();
     }
 
+    tcpAcceptorV6.open(boost::asio::ip::tcp::v6(), ec);
+    if (ec)
+    {
+        NS_LOG_E("Server failed to initialize tcp V6 acceptor: {}", ec.message());
+        return ec;
+    }
+    try
+    {
+        tcpAcceptorV6.set_option(boost::asio::ip::v6_only(true));
+        tcpAcceptorV6.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+        tcpAcceptorV6.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v6(), port));
+        tcpAcceptorV6.listen();
+    }
+    catch (const boost::system::system_error& e)
+    {
+        NS_LOG_E("Server failed to initialize tcp V6 acceptor: {}", e.code().message());
+        return e.code();
+    }
+
     startTcpAccept(tcpAcceptorV4);
+    startTcpAccept(tcpAcceptorV6);
 
     return boost::system::error_code();
 }
@@ -49,10 +71,10 @@ boost::system::error_code Server::start(uint16_t port)
 void Server::startTcpAccept(boost::asio::ip::tcp::acceptor& tcpAcceptor)
 {
     tcpAcceptor.async_accept(
-        [this, weak_self = weak_from_this()](const boost::system::error_code& ec, boost::asio::ip::tcp::socket&& socket)
+        [this, weak_self = weak_from_this(), &tcpAcceptor](const boost::system::error_code& ec, boost::asio::ip::tcp::socket&& socket)
         {
             if (auto shared_self = weak_self.lock())
-                onAcceptTcpConnection(ec, std::move(socket));
+                onAcceptTcpConnection(tcpAcceptor, ec, std::move(socket));
         });
 }
 
@@ -66,9 +88,12 @@ void Server::stop()
 {
     NS_LOG_D("stopping server");
     stopTcpAccept(tcpAcceptorV4);
+    stopTcpAccept(tcpAcceptorV6);
 }
 
-void Server::onAcceptTcpConnection(const boost::system::error_code& ec, boost::asio::ip::tcp::socket&& socket)
+void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
+                                   const boost::system::error_code& ec,
+                                   boost::asio::ip::tcp::socket&& socket)
 {
     if (ec)
     {
@@ -86,6 +111,7 @@ void Server::onAcceptTcpConnection(const boost::system::error_code& ec, boost::a
     NS_LOG_T("server accepting new connection");
 
     auto wsStream = std::make_shared<WebsocketStream>(std::move(socket));
+    wsStream->write_buffer_bytes(65536);
 
     // Set a decorator to change the Server-Agent of the handshake
     wsStream->set_option(boost::beast::websocket::stream_base::decorator(
@@ -98,7 +124,7 @@ void Server::onAcceptTcpConnection(const boost::system::error_code& ec, boost::a
                                     onUpgradeConnection(ec, wsStream);
                            });
 
-    startTcpAccept(tcpAcceptorV4);
+    startTcpAccept(tcpAcceptor);
 }
 
 void Server::onUpgradeConnection(const boost::system::error_code& ec, std::shared_ptr<WebsocketStream> wsStream)

@@ -54,6 +54,7 @@ void Client::onResolve(const boost::system::error_code& ec, boost::asio::ip::tcp
     }
 
     auto wsStream = std::make_shared<WebsocketStream>(*ioContextPtr);
+    wsStream->write_buffer_bytes(65536);
     boost::beast::get_lowest_layer(*wsStream).async_connect(
         results,
         [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ec,
