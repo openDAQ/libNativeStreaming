@@ -26,6 +26,7 @@ BEGIN_NAMESPACE_NATIVE_STREAMING
 class Session;
 
 using OnNewSessionCallback = std::function<void(std::shared_ptr<Session>)>;
+using OnSessionErrorCallback = std::function<void(const std::string&, std::shared_ptr<Session>)>;
 
 /// @brief handles sending / receiving data thru web-socket connection.
 class Session : public std::enable_shared_from_this<Session>
@@ -56,17 +57,33 @@ public:
     /// @brief sets a callbacks to be called when read/write operation is failed
     /// @param onWriteErrorCallback write operation failed callback
     /// @param onReadErrorCallback read operation failed callback
-    void setErrorHandlers(OnCompleteCallback onWriteErrorCallback, OnCompleteCallback onReadErrorCallback);
+    void setErrorHandlers(OnSessionErrorCallback onWriteErrorCallback, OnSessionErrorCallback onReadErrorCallback);
 
+    /// @brief starts sending websocket pings periodically
+    /// @param heartbeatCallback callback to be called on received websocket pongs
+    /// @param heartbeatPeriod interval of sending the websocket pings
+    void startHeartbeat(OnHeartbeatCallback heartbeatCallback, std::chrono::milliseconds heartbeatPeriod);
+
+    /// @brief returns true if websocket stream related to session is open, false otherwise
+    bool isOpen();
 private:
     /// @brief applies additional settings to web-socket stream
     void setOptions();
+
+    /// @brief schedules an async websocket ping each time heartbeat timer expired
+    void schedulePing();
+
+    /// @brief restarts heartbeat timer
+    void restartHeartbeatTimer();
 
     /// @brief determines if Session belongs to server or client
     boost::beast::role_type role;
 
     /// @brief Redirects log calls
     LogCallback logCallback;
+
+    /// @brief callback to be called on received websocket pongs
+    OnHeartbeatCallback heartbeatCallback = []() {};
 
     /// @brief async operations handler
     std::shared_ptr<boost::asio::io_context> ioContextPtr;
@@ -79,6 +96,12 @@ private:
 
     /// @brief web-socket stream object which provides as a R/W interface for connection
     std::shared_ptr<WebsocketStream> wsStream;
+
+    /// @brief timer used to send websocket pings
+    std::shared_ptr<boost::asio::steady_timer> heartbeatTimer;
+
+    /// @brief interval of sending the websocket pings
+    std::chrono::milliseconds heartbeatPeriod;
 };
 
 END_NAMESPACE_NATIVE_STREAMING

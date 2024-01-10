@@ -15,10 +15,9 @@ public:
     MessagesTest()
         : ConnectionTest()
     {
-        onRWErrorCallback = [&](const boost::system::error_code& ec)
+        onRWErrorCallback = [&](const std::string& message, std::shared_ptr<Session>)
         {
-            EXPECT_NE(ec, boost::system::error_code()) << "Success shouldn't be reported via error callback";
-            ADD_FAILURE() << "R/W operation failed: " << ec.what();
+            ADD_FAILURE() << "R/W operation failed: " << message;
         };
     }
 
@@ -87,7 +86,7 @@ protected:
     std::shared_ptr<Server> server;
     std::shared_ptr<Client> client;
 
-    OnCompleteCallback onRWErrorCallback;
+    OnSessionErrorCallback onRWErrorCallback;
 };
 
 // Sender sends multiple strings, reader reads as a single string
