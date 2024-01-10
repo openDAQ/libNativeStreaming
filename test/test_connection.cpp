@@ -169,7 +169,7 @@ TEST_F(ConnectionTest, ServerReadErrorOnDisconnect)
 
     std::promise<void> readErrorPromise;
     std::future<void> readErrorFuture = readErrorPromise.get_future();
-    auto onServerReadErrorCallback = [&readErrorPromise](const boost::system::error_code&) { readErrorPromise.set_value(); };
+    auto onServerReadErrorCallback = [&readErrorPromise](const std::string&, std::shared_ptr<Session>) { readErrorPromise.set_value(); };
     serverSession->setErrorHandlers(nullptr, onServerReadErrorCallback);
 
     auto onServerReadCallback = [&, this](const void* data, size_t size) { return ReadTask(); };
@@ -205,7 +205,7 @@ TEST_F(ConnectionTest, ClientReadErrorOnDisconnect)
 
     std::promise<void> readErrorPromise;
     std::future<void> readErrorFuture = readErrorPromise.get_future();
-    auto onClientReadErrorCallback = [&readErrorPromise](const boost::system::error_code&) { readErrorPromise.set_value(); };
+    auto onClientReadErrorCallback = [&readErrorPromise](const std::string&, std::shared_ptr<Session>) { readErrorPromise.set_value(); };
     clientSession->setErrorHandlers(nullptr, onClientReadErrorCallback);
 
     auto onClientReadCallback = [&, this](const void* data, size_t size) { return ReadTask(); };
@@ -218,4 +218,49 @@ TEST_F(ConnectionTest, ClientReadErrorOnDisconnect)
 
     clientSession->close(onClientSessionClosedCallback);
     ASSERT_EQ(clientDisconnectedFuture.wait_for(timeout), std::future_status::ready);
+}
+
+TEST_F(ConnectionTest, HeartbeatPingPong)
+{
+    const size_t hbPeriodMs = 200;
+    const size_t testDurationMs = 2100;
+    const size_t pingPongsCount = testDurationMs/hbPeriodMs + 1;
+
+    const auto heartbeatPeriod = std::chrono::milliseconds(hbPeriodMs);
+    auto server = std::make_shared<Server>(onNewServerSessionCallback, ioContextPtrServer, logCallback);
+    server->start(CONNECTION_PORT);
+
+    auto client = std::make_shared<Client>(CONNECTION_HOST,
+                                           std::to_string(CONNECTION_PORT),
+                                           CONNECTION_PATH,
+                                           onNewClientSessionCallback,
+                                           onResolveFailedCallback,
+                                           onConnectFailedCallback,
+                                           onHandshakeFailedCallback,
+                                           ioContextPtrClient,
+                                           logCallback);
+    client->connect();
+
+    ASSERT_EQ(clientConnectedFuture.wait_for(timeout), std::future_status::ready);
+    ASSERT_EQ(serverConnectedFuture.wait_for(timeout), std::future_status::ready);
+
+    size_t clientReceivedPongs = 0;
+    auto onClientHeartbeatCallback = [&clientReceivedPongs]() { clientReceivedPongs++; };
+
+    size_t serverReceivedPongs = 0;
+    auto onServerHeartbeatCallback = [&serverReceivedPongs]() { serverReceivedPongs++; };
+
+    // trigger reading to enable pong responses
+    auto onServerReadCallback = [&, this](const void*, size_t) { return ReadTask(); };
+    serverSession->scheduleRead(ReadTask(onServerReadCallback, 1));
+    auto onClientReadCallback = [&, this](const void*, size_t) { return ReadTask(); };
+    clientSession->scheduleRead(ReadTask(onClientReadCallback, 1));
+
+    serverSession->startHeartbeat(onServerHeartbeatCallback, heartbeatPeriod);
+    clientSession->startHeartbeat(onClientHeartbeatCallback, heartbeatPeriod);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(testDurationMs));
+
+    ASSERT_EQ(clientReceivedPongs, pingPongsCount);
+    ASSERT_EQ(serverReceivedPongs, pingPongsCount);
 }
