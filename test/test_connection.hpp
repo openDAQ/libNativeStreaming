@@ -39,7 +39,7 @@ public:
         {
             if (ec)
             {
-                ADD_FAILURE() << "Server session closing failed: " << ec.what();
+                ADD_FAILURE() << "Server session closing failed: " << ec.message();
             }
             serverSession.reset();
             serverDisconnectedPromise.set_value();
@@ -55,20 +55,20 @@ public:
         {
             if (ec)
             {
-                ADD_FAILURE() << "Client session closing failed: " << ec.what();
+                ADD_FAILURE() << "Client session closing failed: " << ec.message();
             }
             clientSession.reset();
             clientDisconnectedPromise.set_value();
         };
 
         onResolveFailedCallback = [this](const boost::system::error_code& ec)
-        { ADD_FAILURE() << "Resolve failed: " << ec.what(); };
+        { ADD_FAILURE() << "Resolve failed: " << ec.message(); };
 
         onConnectFailedCallback = [this](const boost::system::error_code& ec)
-        { ADD_FAILURE() << "Connection failed: " << ec.what(); };
+        { ADD_FAILURE() << "Connection failed: " << ec.message(); };
 
         onHandshakeFailedCallback = [this](const boost::system::error_code& ec)
-        { ADD_FAILURE() << "Handshake failed: " << ec.what(); };
+        { ADD_FAILURE() << "Handshake failed: " << ec.message(); };
     }
 
 protected:

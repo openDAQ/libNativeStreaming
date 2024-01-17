@@ -1,5 +1,9 @@
 set_cmake_folder_context(TARGET_FOLDER_NAME)
 
+add_library(boost_websocket INTERFACE)
+add_library(daq::native_streaming::boost_websocket ALIAS boost_websocket)
+target_compile_definitions(boost_websocket INTERFACE BOOST_ALL_NO_LIB)
+
 # using only asio and beast
 # handle Boost depencies here only if not already handled by parent project
 if (NOT TARGET Boost::beast)
@@ -13,6 +17,12 @@ if (NOT TARGET Boost::beast)
 
     if (Boost_FOUND)
         message(STATUS "Boost ${Boost_VERSION_STRING} at: ${Boost_INCLUDE_DIRS} | ${Boost_LIBRARY_DIRS}")
+
+        target_link_libraries(boost_websocket INTERFACE ${Boost_LIBRARIES})
+        target_include_directories(boost_websocket INTERFACE
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+            $<BUILD_INTERFACE:${Boost_INCLUDE_DIRS}>
+        )
     else (Boost_FOUND)
         message(STATUS "Fetching Boost ${Boost_REQUIREDVERSION}...")
         FetchContent_Declare(Boost
@@ -34,3 +44,7 @@ if (NOT TARGET Boost::beast)
         FetchContent_MakeAvailable(Boost)
     endif (Boost_FOUND)
 endif ()
+
+if (TARGET Boost::beast)
+    target_link_libraries(boost_websocket INTERFACE $<BUILD_INTERFACE:Boost::beast>)
+endif()

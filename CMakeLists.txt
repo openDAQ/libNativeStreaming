@@ -50,7 +50,7 @@ endif()
 # install the library and generate export set (note that no
 # targets file is generated or installed in this step)
 install(
-    TARGETS ${PROJECT_NAME}
+    TARGETS ${PROJECT_NAME} boost_websocket
     EXPORT ${PROJECT_NAME}
     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
