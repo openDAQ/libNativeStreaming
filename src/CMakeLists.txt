@@ -22,17 +22,9 @@ set(SRC_Cpp logging.cpp
 add_library(${PROJECT_NAME} STATIC ${SRC_Include} ${SRC_Cpp})
 add_library(daq::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
-# if target exists it means that boost is being built from source
-# because Boost_FOUND is false and Boost_LIBRARIES is empty
-if (TARGET Boost::beast)
-    set(BOOST_LIBS $<BUILD_INTERFACE:Boost::beast>)
-else()
-    set(BOOST_LIBS ${Boost_LIBRARIES})
-endif()
-
 target_link_libraries(${PROJECT_NAME} PUBLIC spdlog
                                              fmt
-                                             ${BOOST_LIBS}
+                                             daq::native_streaming::boost_websocket
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC
