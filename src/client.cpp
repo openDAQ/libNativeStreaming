@@ -1,5 +1,6 @@
 #include <native_streaming/client.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <native_streaming/utils/boost_compatibility_utils.hpp>
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
@@ -79,13 +80,14 @@ void Client::onConnect(const boost::system::error_code& ec, std::shared_ptr<Webs
         [](boost::beast::websocket::request_type& req)
         { req.set(boost::beast::http::field::user_agent, std::string(BOOST_BEAST_VERSION_STRING) + " openDAQ-streaming-client"); }));
 
-    wsStream->async_handshake(host,
-                              path,
-                              [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ec)
-                              {
-                                  if (auto shared_self = weak_self.lock())
-                                      onUpgradeConnection(ec, wsStream);
-                              });
+    boost_compatibility_utils::async_handshake(*wsStream,
+                                               host,
+                                               path,
+                                               [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ec)
+                                               {
+                                                   if (auto shared_self = weak_self.lock())
+                                                       onUpgradeConnection(ec, wsStream);
+                                               });
 }
 
 void Client::onUpgradeConnection(const boost::system::error_code& ec, std::shared_ptr<WebsocketStream> wsStream)
