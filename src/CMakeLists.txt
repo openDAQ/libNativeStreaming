@@ -7,6 +7,7 @@ set(SRC_Include common.hpp
                 session.hpp
                 server.hpp
                 client.hpp
+                utils/boost_compatibility_utils.hpp
 )
 
 prepend_include(${PROJECT_NAME} SRC_Include)
@@ -17,7 +18,19 @@ set(SRC_Cpp logging.cpp
             session.cpp
             server.cpp
             client.cpp
+            utils/boost_compatibility_utils.cpp
 )
+
+if(MSVC)
+    if(${MSVC_VERSION} LESS 1920)
+        # msvc-17 has a compiler bug when cmpiling functions defined in boost_compatibility_utils
+        # this is why we compile them using cxx_std_14
+        set_source_files_properties(
+            utils/boost_compatibility_utils.cpp
+            PROPERTIES COMPILE_FLAGS /std:c++14
+        )
+    endif()
+endif()
 
 add_library(${PROJECT_NAME} STATIC ${SRC_Include} ${SRC_Cpp})
 add_library(daq::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
