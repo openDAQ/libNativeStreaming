@@ -7,3 +7,6 @@
  - Increase size of websocket write buffer
  - Add heartbeat mechanism based on websocket ping/pong datagrams
  - Fix cmake build with pre-installed Boost
+
+## v1.0.2
+ - Add workaround for building with MSVC-2017 compiler
