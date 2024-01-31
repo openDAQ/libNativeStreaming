@@ -46,3 +46,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
+
+if (MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE /bigobj)
+endif()
