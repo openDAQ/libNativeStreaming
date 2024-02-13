@@ -13,10 +13,6 @@ AsyncWriter::AsyncWriter(boost::asio::io_context& ioContextRef, std::shared_ptr<
 {
 }
 
-AsyncWriter::~AsyncWriter()
-{
-}
-
 void AsyncWriter::scheduleWrite(const std::vector<WriteTask>& tasks)
 {
     ioContextRef.post(strand.wrap(
@@ -48,6 +44,7 @@ void AsyncWriter::doWrite(const std::vector<WriteTask>& tasks)
     {
         buffers.push_back(task.getBuffer());
     }
+
     wsStream->async_write(buffers,
                           strand.wrap(
                               [this, shared_self = shared_from_this()](const boost::system::error_code& ec, std::size_t size)
@@ -64,6 +61,7 @@ void AsyncWriter::writeDone(const boost::system::error_code& ec, std::size_t siz
         auto handler = task.getHandler();
         handler();
     }
+
     writeTasksQueue.pop();
     if (!ec)
     {

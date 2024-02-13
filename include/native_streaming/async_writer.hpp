@@ -61,7 +61,6 @@ class AsyncWriter : public std::enable_shared_from_this<AsyncWriter>
 {
 public:
     explicit AsyncWriter(boost::asio::io_context& ioContextRef, std::shared_ptr<WebsocketStream> wsStream, LogCallback logCallback);
-    ~AsyncWriter();
 
     AsyncWriter(const AsyncWriter&) = delete;
     AsyncWriter& operator=(const AsyncWriter&) = delete;

@@ -1,6 +1,7 @@
 #include <native_streaming/server.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/v6_only.hpp>
+#include <native_streaming/utils/boost_compatibility_utils.hpp>
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
@@ -118,10 +119,12 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
         [](boost::beast::websocket::response_type& res)
         { res.set(boost::beast::http::field::server, std::string(BOOST_BEAST_VERSION_STRING) + " openDAQ-streaming-server"); }));
 
-    wsStream->async_accept([this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ec)
+
+    boost_compatibility_utils::async_accept(*wsStream,
+        [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ecc)
                            {
                                if (auto shared_self = weak_self.lock())
-                                    onUpgradeConnection(ec, wsStream);
+                                    onUpgradeConnection(ecc, wsStream);
                            });
 
     startTcpAccept(tcpAcceptor);
