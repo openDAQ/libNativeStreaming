@@ -58,11 +58,11 @@ void Client::onResolve(const boost::system::error_code& ec, boost::asio::ip::tcp
     wsStream->write_buffer_bytes(65536);
     boost::beast::get_lowest_layer(*wsStream).async_connect(
         results,
-        [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ec,
+        [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ecc,
                                                        boost::asio::ip::tcp::resolver::results_type::endpoint_type)
         {
             if (auto shared_self = weak_self.lock())
-                onConnect(ec, wsStream);
+                onConnect(ecc, wsStream);
         });
 }
 
