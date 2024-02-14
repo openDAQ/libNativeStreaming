@@ -10,3 +10,6 @@
 
 ## v1.0.2
  - Add workaround for building with MSVC-2017 compiler
+
+## v1.0.3
+ - Fix MSVC-2017 Win32 compilation
