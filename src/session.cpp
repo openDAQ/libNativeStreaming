@@ -3,7 +3,7 @@
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
-static std::chrono::milliseconds defaultHeartbeatPeriod = std::chrono::milliseconds(1000);
+static std::chrono::milliseconds defaultHeartbeatPeriod = std::chrono::milliseconds(5000);
 
 Session::Session(std::shared_ptr<boost::asio::io_context> ioContextPtr,
                  std::shared_ptr<WebsocketStream> wsStream,
