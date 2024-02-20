@@ -3,7 +3,7 @@
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
-static std::chrono::milliseconds defaultHeartbeatPeriod = std::chrono::milliseconds(5000);
+static std::chrono::milliseconds defaultHeartbeatPeriod = std::chrono::milliseconds(10000);
 
 Session::Session(std::shared_ptr<boost::asio::io_context> ioContextPtr,
                  std::shared_ptr<WebsocketStream> wsStream,
@@ -15,15 +15,16 @@ Session::Session(std::shared_ptr<boost::asio::io_context> ioContextPtr,
     , reader(std::make_shared<AsyncReader>(*ioContextPtr, wsStream, logCallback))
     , writer(std::make_shared<AsyncWriter>(*ioContextPtr, wsStream, logCallback))
     , wsStream(wsStream)
-    , heartbeatTimer(std::make_shared<boost::asio::steady_timer>(*ioContextPtr.get()))
-    , heartbeatPeriod(defaultHeartbeatPeriod)
+    // , heartbeatTimer(std::make_shared<boost::asio::steady_timer>(*ioContextPtr.get()))
+    // , heartbeatPeriod(defaultHeartbeatPeriod)
 {
     setOptions();
 }
 
 Session::~Session()
 {
-    heartbeatTimer->cancel();
+    // heartbeatTimer->cancel();
+
     // cancel all async operations on socket
     wsStream->next_layer().cancel();
 }
@@ -102,58 +103,58 @@ void Session::scheduleWrite(const std::vector<WriteTask>& tasks)
     writer->scheduleWrite(tasks);
 }
 
-void Session::restartHeartbeatTimer()
-{
-    heartbeatTimer->expires_from_now(heartbeatPeriod);
-    heartbeatTimer->async_wait(
-        [this, weak_self = weak_from_this()](const boost::system::error_code& ec)
-        {
-            if (ec)
-                return;
-            if (auto shared_self = weak_self.lock())
-            {
-                this->schedulePing();
-            }
-        });
-}
+// void Session::restartHeartbeatTimer()
+// {
+//     heartbeatTimer->expires_from_now(heartbeatPeriod);
+//     heartbeatTimer->async_wait(
+//         [this, weak_self = weak_from_this()](const boost::system::error_code& ec)
+//         {
+//             if (ec)
+//                 return;
+//             if (auto shared_self = weak_self.lock())
+//             {
+//                 this->schedulePing();
+//             }
+//         });
+// }
 
-void Session::schedulePing()
-{
-    if (!wsStream->is_open())
-        return;
-
-    std::string payload = std::string("ping from ") +
-                          std::string((role == boost::beast::role_type::server) ? "server" : "client");
-    wsStream->async_ping(payload.c_str(),
-                         [this, weak_self = weak_from_this()](const boost::system::error_code& ec)
-                         {
-                             if (ec)
-                                 return;
-                             if (auto shared_self = weak_self.lock())
-                             {
-                                 this->restartHeartbeatTimer();
-                             }
-                         });
-}
-
-void Session::startHeartbeat(OnHeartbeatCallback heartbeatCallback, std::chrono::milliseconds heartbeatPeriod)
-{
-    this->heartbeatCallback = heartbeatCallback;
-    this->heartbeatPeriod = heartbeatPeriod;
-
-    wsStream->control_callback(
-        [this, weak_self = weak_from_this()](boost::beast::websocket::frame_type kind, boost::beast::string_view /*payload*/)
-        {
-            if (auto shared_self = weak_self.lock())
-            {
-                if (kind == boost::beast::websocket::frame_type::pong)
-                {
-                    this->heartbeatCallback();
-                }
-            }
-        });
-    schedulePing();
-}
+// void Session::schedulePing()
+// {
+//     if (!wsStream->is_open())
+//         return;
+//
+//     std::string payload = std::string("ping from ") +
+//                           std::string((role == boost::beast::role_type::server) ? "server" : "client");
+//     wsStream->async_ping(payload.c_str(),
+//                          [this, weak_self = weak_from_this()](const boost::system::error_code& ec)
+//                          {
+//                              if (ec)
+//                                  return;
+//                              if (auto shared_self = weak_self.lock())
+//                              {
+//                                  this->restartHeartbeatTimer();
+//                              }
+//                          });
+// }
+//
+// void Session::startHeartbeat(OnHeartbeatCallback heartbeatCallback, std::chrono::milliseconds heartbeatPeriod)
+// {
+//     this->heartbeatCallback = heartbeatCallback;
+//     this->heartbeatPeriod = heartbeatPeriod;
+//
+//     wsStream->control_callback(
+//         [this, weak_self = weak_from_this()](boost::beast::websocket::frame_type kind, boost::beast::string_view /*payload*/)
+//         {
+//             if (auto shared_self = weak_self.lock())
+//             {
+//                 if (kind == boost::beast::websocket::frame_type::pong)
+//                 {
+//                     this->heartbeatCallback();
+//                 }
+//             }
+//         });
+//     schedulePing();
+// }
 
 bool Session::isOpen()
 {
