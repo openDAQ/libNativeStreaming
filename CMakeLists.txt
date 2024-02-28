@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(native_streaming VERSION 1.0.3 LANGUAGES CXX)
+project(native_streaming VERSION 1.0.4 LANGUAGES CXX)
 
 if (NOT CMAKE_MESSAGE_CONTEXT)
     set(CMAKE_MESSAGE_CONTEXT ${PROJECT_NAME})
