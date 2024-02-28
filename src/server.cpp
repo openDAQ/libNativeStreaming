@@ -25,46 +25,58 @@ boost::system::error_code Server::start(uint16_t port)
     NS_LOG_D("Starting server");
 
     boost::system::error_code ec;
+    bool hasTcpAcceptor = false;
 
     tcpAcceptorV4.open(boost::asio::ip::tcp::v4(), ec);
-    if (ec)
+    if (!ec)
     {
-        NS_LOG_E("Server failed to initialize tcp V4 acceptor: {}", ec.message());
-        return ec;
+        try
+        {
+            tcpAcceptorV4.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+            tcpAcceptorV4.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port));
+            tcpAcceptorV4.listen();
+        }
+        catch (const boost::system::system_error& e)
+        {
+            NS_LOG_W("Server failed to initialize tcp V4 acceptor: {}", e.code().message());
+            ec = e.code();
+        }
+        startTcpAccept(tcpAcceptorV4);
+        hasTcpAcceptor = true;
     }
-    try
+    else
     {
-        tcpAcceptorV4.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
-        tcpAcceptorV4.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port));
-        tcpAcceptorV4.listen();
-    }
-    catch (const boost::system::system_error& e)
-    {
-        NS_LOG_E("Server failed to initialize tcp V4 acceptor: {}", e.code().message());
-        return e.code();
+        NS_LOG_W("Server failed to open tcp V4 acceptor: {}", ec.message());
     }
 
     tcpAcceptorV6.open(boost::asio::ip::tcp::v6(), ec);
-    if (ec)
+    if (!ec)
     {
-        NS_LOG_E("Server failed to initialize tcp V6 acceptor: {}", ec.message());
-        return ec;
+        try
+        {
+            tcpAcceptorV6.set_option(boost::asio::ip::v6_only(true));
+            tcpAcceptorV6.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+            tcpAcceptorV6.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v6(), port));
+            tcpAcceptorV6.listen();
+        }
+        catch (const boost::system::system_error& e)
+        {
+            NS_LOG_W("Server failed to initialize tcp V6 acceptor: {}", e.code().message());
+            ec = e.code();
+        }
+        startTcpAccept(tcpAcceptorV6);
+        hasTcpAcceptor = true;
     }
-    try
+    else
     {
-        tcpAcceptorV6.set_option(boost::asio::ip::v6_only(true));
-        tcpAcceptorV6.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
-        tcpAcceptorV6.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v6(), port));
-        tcpAcceptorV6.listen();
-    }
-    catch (const boost::system::system_error& e)
-    {
-        NS_LOG_E("Server failed to initialize tcp V6 acceptor: {}", e.code().message());
-        return e.code();
+        NS_LOG_W("Server failed to open tcp V6 acceptor: {}", ec.message());
     }
 
-    startTcpAccept(tcpAcceptorV4);
-    startTcpAccept(tcpAcceptorV6);
+    if (!hasTcpAcceptor)
+    {
+        NS_LOG_E("Server failed to initialize any tcp acceptor. Last error: {}", ec.message());
+        return ec;
+    }
 
     return boost::system::error_code();
 }
