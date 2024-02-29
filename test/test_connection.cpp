@@ -220,11 +220,11 @@ TEST_F(ConnectionTest, ClientReadErrorOnDisconnect)
     ASSERT_EQ(clientDisconnectedFuture.wait_for(timeout), std::future_status::ready);
 }
 
-TEST_F(ConnectionTest, HeartbeatPingPong)
+TEST_F(ConnectionTest, ConnectionActivityHeartbeat)
 {
     const size_t hbPeriodMs = 200;
     const size_t testDurationMs = 2100;
-    const size_t pingPongsCount = testDurationMs/hbPeriodMs + 1;
+    const size_t pongsCount = testDurationMs / hbPeriodMs + 1;
 
     const auto heartbeatPeriod = std::chrono::milliseconds(hbPeriodMs);
     auto server = std::make_shared<Server>(onNewServerSessionCallback, ioContextPtrServer, logCallback);
@@ -245,22 +245,22 @@ TEST_F(ConnectionTest, HeartbeatPingPong)
     ASSERT_EQ(serverConnectedFuture.wait_for(timeout), std::future_status::ready);
 
     size_t clientReceivedPongs = 0;
-    auto onClientHeartbeatCallback = [&clientReceivedPongs]() { clientReceivedPongs++; };
+    auto onClientConnectionAliveCb = [&clientReceivedPongs]() { clientReceivedPongs++; };
 
     size_t serverReceivedPongs = 0;
-    auto onServerHeartbeatCallback = [&serverReceivedPongs]() { serverReceivedPongs++; };
+    auto onServerConnectionAliveCb = [&serverReceivedPongs]() { serverReceivedPongs++; };
 
-    // trigger reading to enable pong responses
+    serverSession->startConnectionActivityMonitoring(onServerConnectionAliveCb, heartbeatPeriod);
+    clientSession->startConnectionActivityMonitoring(onClientConnectionAliveCb, heartbeatPeriod);
+
+    // start reading to enable control callbacks
     auto onServerReadCallback = [&, this](const void*, size_t) { return ReadTask(); };
     serverSession->scheduleRead(ReadTask(onServerReadCallback, 1));
     auto onClientReadCallback = [&, this](const void*, size_t) { return ReadTask(); };
     clientSession->scheduleRead(ReadTask(onClientReadCallback, 1));
 
-    serverSession->startHeartbeat(onServerHeartbeatCallback, heartbeatPeriod);
-    clientSession->startHeartbeat(onClientHeartbeatCallback, heartbeatPeriod);
-
     std::this_thread::sleep_for(std::chrono::milliseconds(testDurationMs));
 
-    ASSERT_EQ(clientReceivedPongs, pingPongsCount);
-    ASSERT_EQ(serverReceivedPongs, pingPongsCount);
+    ASSERT_EQ(clientReceivedPongs, pongsCount);
+    ASSERT_EQ(serverReceivedPongs, pongsCount);
 }

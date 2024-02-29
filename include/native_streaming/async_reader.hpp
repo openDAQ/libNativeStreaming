@@ -88,6 +88,10 @@ public:
     /// @param onErrorCallback callback
     void setErrorHandler(OnCompleteCallback onErrorCallback);
 
+    /// @brief sets a callback to be called on each completed read operation
+    /// @param connectionAliveCallback callback
+    void setConnectionAliveHandler(OnConnectionAliveCallback connectionAliveCallback);
+
 private:
     /// @brief asynchronously reads specified count of bytes and calls specified callback on read completion
     /// @param bytesToRead count of bytes to read
@@ -133,6 +137,10 @@ private:
 
     /// @brief callback to be called when read operation fails
     OnCompleteCallback errorHandler;
+
+    /// @brief Callback to be called on each completed read operation,
+    /// confirming an active state of connection
+    OnConnectionAliveCallback connectionAliveCallback = []() {};
 };
 
 END_NAMESPACE_NATIVE_STREAMING

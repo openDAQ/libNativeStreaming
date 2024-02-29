@@ -27,6 +27,11 @@ void AsyncWriter::setErrorHandler(OnCompleteCallback onErrorCallback)
     errorHandler = onErrorCallback;
 }
 
+void AsyncWriter::setConnectionAliveHandler(OnConnectionAliveCallback connectionAliveCallback)
+{
+    this->connectionAliveCallback = connectionAliveCallback;
+}
+
 void AsyncWriter::queueWriteTasks(const std::vector<WriteTask>& tasks)
 {
     bool writing = !writeTasksQueue.empty();
@@ -65,6 +70,8 @@ void AsyncWriter::writeDone(const boost::system::error_code& ec, std::size_t siz
     writeTasksQueue.pop();
     if (!ec)
     {
+        this->connectionAliveCallback();
+
         NS_LOG_T("Write done - tasks count: {}, bytes written: {}", tasks.size(), size);
         if (!writeTasksQueue.empty())
         {

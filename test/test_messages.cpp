@@ -16,9 +16,7 @@ public:
         : ConnectionTest()
     {
         onRWErrorCallback = [&](const std::string& message, std::shared_ptr<Session>)
-        {
-            ADD_FAILURE() << "R/W operation failed: " << message;
-        };
+        { ADD_FAILURE() << "R/W operation failed: " << message; };
     }
 
 protected:
@@ -421,4 +419,48 @@ TEST_F(MessagesTest, SplitMessagesMultiThread)
     {
         evenWriterThread.join();
     }
+}
+
+TEST_F(MessagesTest, ConnectionActivityMonitoring)
+{
+    // much longer than test duration, so only initial pongs will be sent
+    const auto heartbeatPeriod = std::chrono::milliseconds(100000);
+
+    size_t clientActivityMarkersCnt = 0;
+    auto onClientConnectionAliveCb = [&clientActivityMarkersCnt]() { clientActivityMarkersCnt++; };
+
+    size_t serverActivityMarkersCnt = 0;
+    auto onServerConnectionAliveCb = [&serverActivityMarkersCnt]() { serverActivityMarkersCnt++; };
+
+    serverSession->startConnectionActivityMonitoring(onServerConnectionAliveCb, heartbeatPeriod);
+    clientSession->startConnectionActivityMonitoring(onClientConnectionAliveCb, heartbeatPeriod);
+
+    auto onServerReadCallback = [&, this](const void*, size_t)
+    {
+        serverReadPromise.set_value();
+        return ReadTask();
+    };
+    serverSession->scheduleRead(ReadTask(onServerReadCallback, 1));
+    auto onClientReadCallback = [&, this](const void*, size_t)
+    {
+        clientReadPromise.set_value();
+        return ReadTask();
+    };
+    clientSession->scheduleRead(ReadTask(onClientReadCallback, 1));
+
+    std::vector<WriteTask> tasks;
+    auto symbol = std::make_shared<char>('a');
+    auto writeHandler = [symbol]() {};
+    boost::asio::const_buffer buffer(symbol.get(), sizeof(*symbol));
+    tasks.push_back(WriteTask(buffer, writeHandler));
+
+    serverSession->scheduleWrite(tasks);
+    clientSession->scheduleWrite(tasks);
+
+    EXPECT_EQ(serverReadFuture.wait_for(timeout), std::future_status::ready);
+    EXPECT_EQ(clientReadFuture.wait_for(timeout), std::future_status::ready);
+
+    // 1 pong, 1 succedeed write op, 1 succedeed read op
+    ASSERT_EQ(clientActivityMarkersCnt, 3u);
+    ASSERT_EQ(serverActivityMarkersCnt, 3u);
 }
