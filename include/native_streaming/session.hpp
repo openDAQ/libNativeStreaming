@@ -59,10 +59,11 @@ public:
     /// @param onReadErrorCallback read operation failed callback
     void setErrorHandlers(OnSessionErrorCallback onWriteErrorCallback, OnSessionErrorCallback onReadErrorCallback);
 
-    /// @brief starts sending websocket pings periodically
-    /// @param heartbeatCallback callback to be called on received websocket pongs
-    /// @param heartbeatPeriod interval of sending the websocket pings
-    void startHeartbeat(OnHeartbeatCallback heartbeatCallback, std::chrono::milliseconds heartbeatPeriod);
+    /// @brief starts connection activity monitoring and sending websocket pongs periodically
+    /// @param connectionAliveCallback callback to be called on succedeed read/write and received websocket pongs
+    /// @param heartbeatPeriod interval of sending the websocket pongs
+    void startConnectionActivityMonitoring(OnConnectionAliveCallback connectionAliveCallback,
+                                           std::chrono::milliseconds heartbeatPeriod);
 
     /// @brief returns true if websocket stream related to session is open, false otherwise
     bool isOpen();
@@ -70,8 +71,8 @@ private:
     /// @brief applies additional settings to web-socket stream
     void setOptions();
 
-    /// @brief schedules an async websocket ping each time heartbeat timer expired
-    void schedulePing();
+    /// @brief schedules an async websocket pong each time heartbeat timer expired
+    void schedulePong();
 
     /// @brief restarts heartbeat timer
     void restartHeartbeatTimer();
@@ -82,8 +83,9 @@ private:
     /// @brief Redirects log calls
     LogCallback logCallback;
 
-    /// @brief callback to be called on received websocket pongs
-    OnHeartbeatCallback heartbeatCallback = []() {};
+    /// @brief Callback to trigger upon successful I/O operation or upon receiving a WebSocket pong,
+    /// confirming an active state of connection
+    OnConnectionAliveCallback connectionAliveCallback = []() {};
 
     /// @brief async operations handler
     std::shared_ptr<boost::asio::io_context> ioContextPtr;
@@ -97,10 +99,10 @@ private:
     /// @brief web-socket stream object which provides as a R/W interface for connection
     std::shared_ptr<WebsocketStream> wsStream;
 
-    /// @brief timer used to send websocket pings
+    /// @brief timer used to send websocket pongs
     std::shared_ptr<boost::asio::steady_timer> heartbeatTimer;
 
-    /// @brief interval of sending the websocket pings
+    /// @brief interval of sending the websocket pongs
     std::chrono::milliseconds heartbeatPeriod;
 };
 

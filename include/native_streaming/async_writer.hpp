@@ -73,6 +73,10 @@ public:
     /// @param onErrorCallback callback
     void setErrorHandler(OnCompleteCallback onErrorCallback);
 
+    /// @brief sets a callback to be called on each completed write operation
+    /// @param connectionAliveCallback callback
+    void setConnectionAliveHandler(OnConnectionAliveCallback connectionAliveCallback);
+
 private:
     /// @brief pushes tasks into queue
     /// @param tasks write tasks to queue
@@ -103,6 +107,10 @@ private:
 
     /// @brief callback to be called when write operation is failed
     OnCompleteCallback errorHandler;
+
+    /// @brief Callback to be called on each completed write operation,
+    /// confirming an active state of connection
+    OnConnectionAliveCallback connectionAliveCallback = []() {};
 };
 
 END_NAMESPACE_NATIVE_STREAMING

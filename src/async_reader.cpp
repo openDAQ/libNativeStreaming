@@ -43,10 +43,17 @@ void AsyncReader::setErrorHandler(OnCompleteCallback onErrorCallback)
     errorHandler = onErrorCallback;
 }
 
+void AsyncReader::setConnectionAliveHandler(OnConnectionAliveCallback connectionAliveCallback)
+{
+    this->connectionAliveCallback = connectionAliveCallback;
+}
+
 void AsyncReader::readDone(const boost::system::error_code& ec, std::size_t /*size*/)
 {
     if (!ec)
     {
+        this->connectionAliveCallback();
+
         auto readHandler = pendingTask.getHandler();
         auto readSize = pendingTask.getSize();
 

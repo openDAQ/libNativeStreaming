@@ -112,19 +112,19 @@ void Session::restartHeartbeatTimer()
                 return;
             if (auto shared_self = weak_self.lock())
             {
-                this->schedulePing();
+                this->schedulePong();
             }
         });
 }
 
-void Session::schedulePing()
+void Session::schedulePong()
 {
     if (!wsStream->is_open())
         return;
 
     std::string payload = std::string("ping from ") +
                           std::string((role == boost::beast::role_type::server) ? "server" : "client");
-    wsStream->async_ping(payload.c_str(),
+    wsStream->async_pong(payload.c_str(),
                          [this, weak_self = weak_from_this()](const boost::system::error_code& ec)
                          {
                              if (ec)
@@ -136,10 +136,12 @@ void Session::schedulePing()
                          });
 }
 
-void Session::startHeartbeat(OnHeartbeatCallback heartbeatCallback, std::chrono::milliseconds heartbeatPeriod)
+void Session::startConnectionActivityMonitoring(OnConnectionAliveCallback connectionAliveCallback, std::chrono::milliseconds heartbeatPeriod)
 {
-    this->heartbeatCallback = heartbeatCallback;
+    this->connectionAliveCallback = connectionAliveCallback;
     this->heartbeatPeriod = heartbeatPeriod;
+    reader->setConnectionAliveHandler(connectionAliveCallback);
+    writer->setConnectionAliveHandler(connectionAliveCallback);
 
     wsStream->control_callback(
         [this, weak_self = weak_from_this()](boost::beast::websocket::frame_type kind, boost::beast::string_view /*payload*/)
@@ -148,11 +150,11 @@ void Session::startHeartbeat(OnHeartbeatCallback heartbeatCallback, std::chrono:
             {
                 if (kind == boost::beast::websocket::frame_type::pong)
                 {
-                    this->heartbeatCallback();
+                    this->connectionAliveCallback();
                 }
             }
         });
-    schedulePing();
+    schedulePong();
 }
 
 bool Session::isOpen()
