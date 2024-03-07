@@ -25,7 +25,7 @@
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
 #define LOG(logCallback, logLevel, message, ...) \
-    logCallback(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, logLevel, format(FMT_STRING(message), ##__VA_ARGS__).data());
+    logCallback(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, logLevel, ::fmt::format(FMT_STRING(message), ##__VA_ARGS__).data());
 
 #define NS_LOG_E(message, ...) LOG(logCallback, spdlog::level::err, message, ##__VA_ARGS__)
 
