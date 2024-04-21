@@ -33,9 +33,17 @@ Client::~Client()
 
 void Client::connect()
 {
+    auto tcpType = boost::asio::ip::tcp::v4();
+    std::string host = this->host;
+    if (host[0] == '[' && host[host.size() - 1] == ']')
+    {
+        tcpType = boost::asio::ip::tcp::v6();
+        host = host.substr(1, host.size() - 2);
+    }
     NS_LOG_I("connecting to server: host {}, port {}, path {}", host, port, path);
 
     resolver.async_resolve(
+        tcpType,
         host,
         port,
         [this, weak_self = weak_from_this()](const boost::system::error_code& ec, boost::asio::ip::tcp::resolver::results_type results)
