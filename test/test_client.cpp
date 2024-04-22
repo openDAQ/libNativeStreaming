@@ -47,6 +47,19 @@ TEST_F(ClientTest, Create)
                            logCallback));
 }
 
+TEST_F(ClientTest, CreateWithIPv6)
+{
+    ASSERT_NO_THROW(Client("[::1]",
+                           std::to_string(CONNECTION_PORT),
+                           CONNECTION_PATH,
+                           onUnusedSessionCallback,
+                           onResolveFailedCallback,
+                           onConnectFailedCallback,
+                           onHandshakeFailedCallback,
+                           ioContextPtrClient,
+                           logCallback));
+}
+
 TEST_F(ClientTest, ConnectFailed)
 {
     auto client = std::make_shared<Client>(CONNECTION_HOST,
