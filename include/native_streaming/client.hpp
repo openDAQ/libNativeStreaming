@@ -18,6 +18,7 @@
 
 #include <native_streaming/common.hpp>
 #include <native_streaming/session.hpp>
+#include <native_streaming/authentication.hpp>
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
@@ -28,6 +29,7 @@ public:
     explicit Client(const std::string& host,
                     const std::string& port,
                     const std::string& path,
+                    const Authentication& authentication,
                     OnNewSessionCallback onNewSessionCallback,
                     OnCompleteCallback onResolveFailCallback,
                     OnCompleteCallback onConnectFailCallback,
@@ -94,6 +96,9 @@ private:
 
     /// @brief callback to be called if handshake with a remote server is failed
     OnCompleteCallback onHandshakeFailCallback;
+
+    /// @brief a structure holding authentication information
+    Authentication authentication;
 };
 
 END_NAMESPACE_NATIVE_STREAMING

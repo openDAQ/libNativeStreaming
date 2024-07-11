@@ -18,8 +18,11 @@
 
 #include <native_streaming/common.hpp>
 #include <native_streaming/session.hpp>
+#include <native_streaming/authentication.hpp>
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
+
+using OnAuthenticateCallback = std::function<bool(const Authentication& authentication)>;
 
 /// @brief accepts incoming connections on specified port, creates and returns new Session object via
 /// callback for each connected client
@@ -27,6 +30,7 @@ class Server : public std::enable_shared_from_this<Server>
 {
 public:
     explicit Server(OnNewSessionCallback onNewSessionCallback,
+                    OnAuthenticateCallback onAuthenticateCallback,
                     std::shared_ptr<boost::asio::io_context> ioContextPtr,
                     LogCallback logCallback);
     ~Server();
@@ -50,6 +54,14 @@ private:
     void onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
                                const boost::system::error_code& ec,
                                boost::asio::ip::tcp::socket&& socket);
+
+    /// @brief callback called when connect request headers have been read by the server
+    /// @param ec error_code object indicates if headers were read successfuly
+    /// @param wsStream web-socket stream object which provides as a R/W interface for connection
+    /// @param request object which holds connect request parameters
+    void onReadAcceptRequest(const boost::system::error_code& ec,
+                             const std::shared_ptr<WebsocketStream>& wsStream,
+                             boost::beast::http::request<boost::beast::http::string_body>& request);
 
     /// @brief callback called when web-socket handshake finished for new connection
     /// @param ec error_code object indicates handshake failure
@@ -83,6 +95,15 @@ private:
 
     /// Tcp connection acceptor binded to IPv6
     boost::asio::ip::tcp::acceptor tcpAcceptorV6;
+
+    /// Buffer for reading request headers during accept step
+    boost::asio::streambuf acceptBuffer;
+
+    /// Object for holding request parameters druging accept step
+    boost::beast::http::request<boost::beast::http::string_body> acceptRequest;
+
+    /// @brief callback which is triggered on authenticaiton step. It should return true for successful authentication and false otherwise.
+    OnAuthenticateCallback onAuthenticateCallback = [](const Authentication& authentication) { return true; };
 };
 
 END_NAMESPACE_NATIVE_STREAMING

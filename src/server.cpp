@@ -5,10 +5,14 @@
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
-Server::Server(OnNewSessionCallback onNewSessionCallback, std::shared_ptr<boost::asio::io_context> ioContextPtr, LogCallback logCallback)
+Server::Server(OnNewSessionCallback onNewSessionCallback,
+               OnAuthenticateCallback onAuthenticateCallback,
+               std::shared_ptr<boost::asio::io_context> ioContextPtr,
+               LogCallback logCallback)
     : ioContextPtr(ioContextPtr)
     , logCallback(logCallback)
     , onNewSessionCallback(onNewSessionCallback)
+    , onAuthenticateCallback(onAuthenticateCallback)
     , tcpAcceptorV4(*ioContextPtr)
     , tcpAcceptorV6(*ioContextPtr)
 {
@@ -118,6 +122,8 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
         {
             NS_LOG_E("accept failed {}", ec.message());
         }
+
+        startTcpAccept(tcpAcceptor);
         return;
     }
 
@@ -126,20 +132,62 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
     auto wsStream = std::make_shared<WebsocketStream>(std::move(socket));
     wsStream->write_buffer_bytes(65536);
 
+    boost::beast::http::async_read(wsStream->next_layer(),
+                                   acceptBuffer,
+                                   acceptRequest,
+                                   [this, weak_self = weak_from_this(), &tcpAcceptor, wsStream](boost::system::error_code& ec, size_t size)
+                                   {
+                                       if (auto sharedSelf = weak_self.lock())
+                                       {
+                                           onReadAcceptRequest(ec, wsStream, acceptRequest);
+                                           startTcpAccept(tcpAcceptor);
+                                       }
+                                   });
+}
+
+void Server::onReadAcceptRequest(const boost::system::error_code& ec,
+                                 const std::shared_ptr<WebsocketStream>& wsStream,
+                                 boost::beast::http::request<boost::beast::http::string_body>& request)
+{
+    if (ec)
+    {
+        NS_LOG_E("Failed to read connect request headers {}", ec.message());
+        return;
+    }
+
+    auto authentication = Authentication();
+
+    try
+    {
+        if (request.count(boost::beast::http::field::authorization))
+        {
+            const auto authorizationHeader = request[boost::beast::http::field::authorization];
+            authentication = Authentication::fromHeader(authorizationHeader);
+        }
+    }
+    catch (...)
+    {
+        NS_LOG_W("Server recieved invalid authenitcation information");
+    }
+
+    if (!onAuthenticateCallback(authentication))
+    {
+        NS_LOG_I("Websocket authenticaiton failed");
+        return;
+    }
+
     // Set a decorator to change the Server-Agent of the handshake
     wsStream->set_option(boost::beast::websocket::stream_base::decorator(
         [](boost::beast::websocket::response_type& res)
         { res.set(boost::beast::http::field::server, std::string(BOOST_BEAST_VERSION_STRING) + " openDAQ-streaming-server"); }));
 
-
-    boost_compatibility_utils::async_accept(*wsStream,
-        [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ecc)
+    // Accept the upgrade request
+    wsStream->async_accept(request,
+                           [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ecc)
                            {
                                if (auto shared_self = weak_self.lock())
-                                    onUpgradeConnection(ecc, wsStream);
+                                   onUpgradeConnection(ecc, wsStream);
                            });
-
-    startTcpAccept(tcpAcceptor);
 }
 
 void Server::onUpgradeConnection(const boost::system::error_code& ec, std::shared_ptr<WebsocketStream> wsStream)

@@ -10,18 +10,21 @@ class ServerTest : public TestBase
 public:
     /// Drops created session
     const OnNewSessionCallback onUnusedSessionCallback = [](std::shared_ptr<Session>) {};
+
+    /// Everyone is authenticated by default
+    const OnAuthenticateCallback onAuthenticateCallback = [](const Authentication& authentication) { return true; };
 };
 
 TEST_F(ServerTest, ServerCreate)
 {
-    ASSERT_NO_THROW(Server(onUnusedSessionCallback, ioContextPtrServer, logCallback));
+    ASSERT_NO_THROW(Server(onUnusedSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback));
 }
 
 TEST_F(ServerTest, ServerStartStop)
 {
     const unsigned int cycleCount = 10;
 
-    auto server = std::make_shared<Server>(onUnusedSessionCallback, ioContextPtrServer, logCallback);
+    auto server = std::make_shared<Server>(onUnusedSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
 
     for (unsigned int counter = 0; counter < cycleCount; ++counter)
     {
@@ -32,7 +35,7 @@ TEST_F(ServerTest, ServerStartStop)
 
 TEST_F(ServerTest, ServerStartTwice)
 {
-    auto server = std::make_shared<Server>(onUnusedSessionCallback, ioContextPtrServer, logCallback);
+    auto server = std::make_shared<Server>(onUnusedSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
 
     ASSERT_EQ(server->start(CONNECTION_PORT), boost::system::error_code());
     ASSERT_NE(server->start(CONNECTION_PORT), boost::system::error_code());
@@ -40,8 +43,8 @@ TEST_F(ServerTest, ServerStartTwice)
 
 TEST_F(ServerTest, DISABLED_MultipleServersSamePort)
 {
-    auto server1 = std::make_shared<Server>(onUnusedSessionCallback, ioContextPtrServer, logCallback);
-    auto server2 = std::make_shared<Server>(onUnusedSessionCallback, ioContextPtrServer, logCallback);
+    auto server1 = std::make_shared<Server>(onUnusedSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
+    auto server2 = std::make_shared<Server>(onUnusedSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
 
     ASSERT_EQ(server1->start(CONNECTION_PORT), boost::system::error_code());
     ASSERT_NE(server2->start(CONNECTION_PORT), boost::system::error_code());
@@ -49,8 +52,8 @@ TEST_F(ServerTest, DISABLED_MultipleServersSamePort)
 
 TEST_F(ServerTest, MultipleServersDiffPorts)
 {
-    auto server1 = std::make_shared<Server>(onUnusedSessionCallback, ioContextPtrServer, logCallback);
-    auto server2 = std::make_shared<Server>(onUnusedSessionCallback, ioContextPtrServer, logCallback);
+    auto server1 = std::make_shared<Server>(onUnusedSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
+    auto server2 = std::make_shared<Server>(onUnusedSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
 
     ASSERT_EQ(server1->start(CONNECTION_PORT), boost::system::error_code());
     ASSERT_EQ(server2->start(CONNECTION_PORT + 1), boost::system::error_code());
