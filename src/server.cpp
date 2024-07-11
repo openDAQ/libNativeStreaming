@@ -135,7 +135,7 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
     boost::beast::http::async_read(wsStream->next_layer(),
                                    acceptBuffer,
                                    acceptRequest,
-                                   [this, weak_self = weak_from_this(), &tcpAcceptor, wsStream](boost::system::error_code& ec, size_t size)
+                                   [this, weak_self = weak_from_this(), &tcpAcceptor, wsStream](boost::system::error_code& ec, size_t /*size*/)
                                    {
                                        if (auto sharedSelf = weak_self.lock())
                                        {

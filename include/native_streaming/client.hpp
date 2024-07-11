@@ -82,6 +82,9 @@ private:
     /// @brief additional path to web-socket service on a server. Usually is "/"
     std::string path;
 
+    /// @brief a structure holding authentication information
+    Authentication authentication;
+
     /// @brief The TCP resolver
     boost::asio::ip::tcp::resolver resolver;
 
@@ -96,9 +99,6 @@ private:
 
     /// @brief callback to be called if handshake with a remote server is failed
     OnCompleteCallback onHandshakeFailCallback;
-
-    /// @brief a structure holding authentication information
-    Authentication authentication;
 };
 
 END_NAMESPACE_NATIVE_STREAMING
