@@ -90,6 +90,9 @@ private:
     /// @brief callback used to provide newly created Session to outside world, e.g. to protocol handler
     OnNewSessionCallback onNewSessionCallback;
 
+    /// @brief callback which is triggered on authenticaiton step. It should return true for successful authentication and false otherwise.
+    OnAuthenticateCallback onAuthenticateCallback;
+
     /// Tcp connection acceptor binded to IPv4
     boost::asio::ip::tcp::acceptor tcpAcceptorV4;
 
@@ -101,9 +104,6 @@ private:
 
     /// Object for holding request parameters druging accept step
     boost::beast::http::request<boost::beast::http::string_body> acceptRequest;
-
-    /// @brief callback which is triggered on authenticaiton step. It should return true for successful authentication and false otherwise.
-    OnAuthenticateCallback onAuthenticateCallback = [](const Authentication& authentication) { return true; };
 };
 
 END_NAMESPACE_NATIVE_STREAMING
