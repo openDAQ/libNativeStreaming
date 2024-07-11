@@ -7,7 +7,9 @@ set(SRC_Include common.hpp
                 session.hpp
                 server.hpp
                 client.hpp
+                authentication.hpp
                 utils/boost_compatibility_utils.hpp
+                utils/base64.hpp
 )
 
 prepend_include(${PROJECT_NAME} SRC_Include)
@@ -18,7 +20,9 @@ set(SRC_Cpp logging.cpp
             session.cpp
             server.cpp
             client.cpp
+            authentication.cpp
             utils/boost_compatibility_utils.cpp
+            utils/base64.cpp
 )
 
 if(MSVC)

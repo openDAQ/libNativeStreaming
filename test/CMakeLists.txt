@@ -9,6 +9,9 @@ set(TEST_SOURCES test_server.cpp
                  test_tasks.cpp
                  test_connection.cpp
                  test_messages.cpp
+                 test_base64.cpp
+                 test_authentication_object.cpp
+                 test_authentication.cpp
 )
 
 add_executable(${TEST_APP} test_app.cpp

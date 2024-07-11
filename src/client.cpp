@@ -7,6 +7,7 @@ BEGIN_NAMESPACE_NATIVE_STREAMING
 Client::Client(const std::string& host,
                const std::string& port,
                const std::string& path,
+               const Authentication& authentication,
                OnNewSessionCallback onNewSessionCallback,
                OnCompleteCallback onResolveFailCallback,
                OnCompleteCallback onConnectFailCallback,
@@ -18,11 +19,12 @@ Client::Client(const std::string& host,
     , host(host)
     , port(port)
     , path(path)
+    , authentication(authentication)
     , resolver(*ioContextPtr)
     , onNewSessionCallback(onNewSessionCallback)
-    , onResolveFailCallback(onConnectFailCallback)
+    , onResolveFailCallback(onResolveFailCallback)
     , onConnectFailCallback(onConnectFailCallback)
-    , onHandshakeFailCallback(onConnectFailCallback)
+    , onHandshakeFailCallback(onHandshakeFailCallback)
 {
 }
 
@@ -77,8 +79,13 @@ void Client::onConnect(const boost::system::error_code& ec, std::shared_ptr<Webs
 
     // Set a decorator to change the User-Agent of the handshake
     wsStream->set_option(boost::beast::websocket::stream_base::decorator(
-        [](boost::beast::websocket::request_type& req)
-        { req.set(boost::beast::http::field::user_agent, std::string(BOOST_BEAST_VERSION_STRING) + " openDAQ-streaming-client"); }));
+        [this](boost::beast::websocket::request_type& req)
+        { 
+            req.set(boost::beast::http::field::user_agent, std::string(BOOST_BEAST_VERSION_STRING) + " openDAQ-streaming-client");
+            
+            if (authentication.getType() != AuthenticationType::ANONYMOUS)
+                req.set(boost::beast::http::field::authorization, authentication.getEncodedHeader());
+        }));
 
     boost_compatibility_utils::async_handshake(*wsStream,
                                                host,

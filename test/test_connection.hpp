@@ -35,6 +35,11 @@ public:
             serverConnectedPromise.set_value();
         };
 
+        onAuthenticateCallback = [this](const Authentication& authentication) 
+        {
+            return true; 
+        };
+
         onServerSessionClosedCallback = [this](const boost::system::error_code& ec)
         {
             if (ec)
@@ -101,6 +106,7 @@ protected:
     std::future<void> serverConnectedFuture;
     std::shared_ptr<Session> serverSession;
     OnNewSessionCallback onNewServerSessionCallback;
+    OnAuthenticateCallback onAuthenticateCallback;
     std::promise<void> serverDisconnectedPromise;
     std::future<void> serverDisconnectedFuture;
     OnCompleteCallback onServerSessionClosedCallback;
@@ -116,6 +122,7 @@ protected:
     OnCompleteCallback onConnectFailedCallback;
     OnCompleteCallback onResolveFailedCallback;
     OnCompleteCallback onHandshakeFailedCallback;
+    Authentication authentication;
 };
 
 END_NAMESPACE_NATIVE_STREAMING

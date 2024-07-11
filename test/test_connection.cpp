@@ -6,12 +6,13 @@ using namespace daq::native_streaming;
 
 TEST_F(ConnectionTest, Connect)
 {
-    auto server = std::make_shared<Server>(onNewServerSessionCallback, ioContextPtrServer, logCallback);
+    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
     server->start(CONNECTION_PORT);
 
     auto client = std::make_shared<Client>(CONNECTION_HOST,
                                            std::to_string(CONNECTION_PORT),
                                            CONNECTION_PATH,
+                                           authentication,
                                            onNewClientSessionCallback,
                                            onResolveFailedCallback,
                                            onConnectFailedCallback,
@@ -32,12 +33,13 @@ TEST_F(ConnectionTest, Connect)
 
 TEST_F(ConnectionTest, ConnectIPv6)
 {
-    auto server = std::make_shared<Server>(onNewServerSessionCallback, ioContextPtrServer, logCallback);
+    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
     server->start(CONNECTION_PORT);
 
     auto client = std::make_shared<Client>("::1",
                                            std::to_string(CONNECTION_PORT),
                                            CONNECTION_PATH,
+                                           authentication,
                                            onNewClientSessionCallback,
                                            onResolveFailedCallback,
                                            onConnectFailedCallback,
@@ -58,12 +60,13 @@ TEST_F(ConnectionTest, ConnectIPv6)
 
 TEST_F(ConnectionTest, ConnectCloseServerFirst)
 {
-    auto server = std::make_shared<Server>(onNewServerSessionCallback, ioContextPtrServer, logCallback);
+    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
     server->start(CONNECTION_PORT);
 
     auto client = std::make_shared<Client>(CONNECTION_HOST,
                                            std::to_string(CONNECTION_PORT),
                                            CONNECTION_PATH,
+                                           authentication,
                                            onNewClientSessionCallback,
                                            onResolveFailedCallback,
                                            onConnectFailedCallback,
@@ -84,12 +87,13 @@ TEST_F(ConnectionTest, ConnectCloseServerFirst)
 
 TEST_F(ConnectionTest, ConnectCloseClientFirst)
 {
-    auto server = std::make_shared<Server>(onNewServerSessionCallback, ioContextPtrServer, logCallback);
+    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
     server->start(CONNECTION_PORT);
 
     auto client = std::make_shared<Client>(CONNECTION_HOST,
                                            std::to_string(CONNECTION_PORT),
                                            CONNECTION_PATH,
+                                           authentication,
                                            onNewClientSessionCallback,
                                            onResolveFailedCallback,
                                            onConnectFailedCallback,
@@ -110,12 +114,13 @@ TEST_F(ConnectionTest, ConnectCloseClientFirst)
 
 TEST_F(ConnectionTest, Reconnect)
 {
-    auto server = std::make_shared<Server>(onNewServerSessionCallback, ioContextPtrServer, logCallback);
+    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
     server->start(CONNECTION_PORT);
 
     auto client = std::make_shared<Client>(CONNECTION_HOST,
                                            std::to_string(CONNECTION_PORT),
                                            CONNECTION_PATH,
+                                           authentication,
                                            onNewClientSessionCallback,
                                            onResolveFailedCallback,
                                            onConnectFailedCallback,
@@ -150,12 +155,13 @@ TEST_F(ConnectionTest, Reconnect)
 
 TEST_F(ConnectionTest, ServerReadErrorOnDisconnect)
 {
-    auto server = std::make_shared<Server>(onNewServerSessionCallback, ioContextPtrServer, logCallback);
+    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
     server->start(CONNECTION_PORT);
 
     auto client = std::make_shared<Client>(CONNECTION_HOST,
                                            std::to_string(CONNECTION_PORT),
                                            CONNECTION_PATH,
+                                           authentication,
                                            onNewClientSessionCallback,
                                            onResolveFailedCallback,
                                            onConnectFailedCallback,
@@ -186,12 +192,13 @@ TEST_F(ConnectionTest, ServerReadErrorOnDisconnect)
 
 TEST_F(ConnectionTest, ClientReadErrorOnDisconnect)
 {
-    auto server = std::make_shared<Server>(onNewServerSessionCallback, ioContextPtrServer, logCallback);
+    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
     server->start(CONNECTION_PORT);
 
     auto client = std::make_shared<Client>(CONNECTION_HOST,
                                            std::to_string(CONNECTION_PORT),
                                            CONNECTION_PATH,
+                                           authentication,
                                            onNewClientSessionCallback,
                                            onResolveFailedCallback,
                                            onConnectFailedCallback,
@@ -227,12 +234,13 @@ TEST_F(ConnectionTest, ConnectionActivityHeartbeat)
     const size_t pongsCount = testDurationMs / hbPeriodMs + 1;
 
     const auto heartbeatPeriod = std::chrono::milliseconds(hbPeriodMs);
-    auto server = std::make_shared<Server>(onNewServerSessionCallback, ioContextPtrServer, logCallback);
+    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
     server->start(CONNECTION_PORT);
 
     auto client = std::make_shared<Client>(CONNECTION_HOST,
                                            std::to_string(CONNECTION_PORT),
                                            CONNECTION_PATH,
+                                           authentication,
                                            onNewClientSessionCallback,
                                            onResolveFailedCallback,
                                            onConnectFailedCallback,

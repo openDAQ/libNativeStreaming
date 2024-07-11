@@ -37,11 +37,12 @@ protected:
 
         ResetFuturePromise();
 
-        server = std::make_shared<Server>(onNewServerSessionCallback, ioContextPtrServer, logCallback);
+        server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
         server->start(CONNECTION_PORT);
         client = std::make_shared<Client>(CONNECTION_HOST,
                                           std::to_string(CONNECTION_PORT),
                                           CONNECTION_PATH,
+                                          authentication,
                                           onNewClientSessionCallback,
                                           onResolveFailedCallback,
                                           onConnectFailedCallback,

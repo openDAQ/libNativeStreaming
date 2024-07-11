@@ -29,6 +29,7 @@ public:
     OnCompleteCallback onResolveFailedCallback;
     OnCompleteCallback onConnectFailedCallback;
     OnCompleteCallback onHandshakeFailedCallback;
+    Authentication authentication;
 
     /// Drops created session
     OnNewSessionCallback onUnusedSessionCallback;
@@ -39,6 +40,7 @@ TEST_F(ClientTest, Create)
     ASSERT_NO_THROW(Client(CONNECTION_HOST,
                            std::to_string(CONNECTION_PORT),
                            CONNECTION_PATH,
+                           authentication,
                            onUnusedSessionCallback,
                            onResolveFailedCallback,
                            onConnectFailedCallback,
@@ -52,6 +54,7 @@ TEST_F(ClientTest, ConnectFailed)
     auto client = std::make_shared<Client>(CONNECTION_HOST,
                                            std::to_string(CONNECTION_PORT),
                                            CONNECTION_PATH,
+                                           authentication,
                                            onUnusedSessionCallback,
                                            onResolveFailedCallback,
                                            onConnectFailedCallback,
