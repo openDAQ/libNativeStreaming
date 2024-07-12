@@ -37,6 +37,9 @@ namespace boost_compatibility_utils
         const BoostHandler& handler);
 
     void async_accept(WebsocketStream& websocket, const BoostHandler& handler);
+    void async_accept(WebsocketStream& websocket,
+                      boost::beast::http::request<boost::beast::http::string_body>& request,
+                      const BoostHandler& handler);
 
     void async_write(boost::beast::tcp_stream& stream,
                      boost::beast::http::request<boost::beast::http::string_body>& request,

@@ -83,7 +83,7 @@ void Client::onConnect(const boost::system::error_code& ec, std::shared_ptr<Webs
         { 
             req.set(boost::beast::http::field::user_agent, std::string(BOOST_BEAST_VERSION_STRING) + " openDAQ-streaming-client");
             
-            if (authentication.getType() != AuthenticationType::ANONYMOUS)
+            if (authentication.getType() != AuthenticationType::Anonymous)
                 req.set(boost::beast::http::field::authorization, authentication.getEncodedHeader());
         }));
 
