@@ -5,12 +5,12 @@
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
 Authentication::Authentication()
-    : type(AuthenticationType::ANONYMOUS)
+    : type(AuthenticationType::Anonymous)
 {
 }
 
 Authentication::Authentication(const std::string& username, const std::string& password)
-    : type(AuthenticationType::BASIC)
+    : type(AuthenticationType::Basic)
     , username(username)
     , password(password)
 {
@@ -60,7 +60,7 @@ std::string Authentication::getEncodedHeader() const
 {
     switch (type)
     {
-        case daq::native_streaming::AuthenticationType::BASIC:
+        case daq::native_streaming::AuthenticationType::Basic:
             return "Basic " + Base64::encode(username + ":" + password);
     }
 

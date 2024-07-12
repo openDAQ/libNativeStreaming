@@ -102,7 +102,7 @@ private:
     /// Buffer for reading request headers during accept step
     boost::asio::streambuf acceptBuffer;
 
-    /// Object for holding request parameters druging accept step
+    /// Object for holding request parameters during accept step
     boost::beast::http::request<boost::beast::http::string_body> acceptRequest;
 };
 

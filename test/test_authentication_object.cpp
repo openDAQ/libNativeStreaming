@@ -9,7 +9,7 @@ TEST_F(AuthenticationObjectTest, Default)
 {
     Authentication authentication;
 
-    ASSERT_EQ(authentication.getType(), AuthenticationType::ANONYMOUS);
+    ASSERT_EQ(authentication.getType(), AuthenticationType::Anonymous);
     ASSERT_EQ(authentication.getUsername(), "");
     ASSERT_EQ(authentication.getPassword(), "");
     ASSERT_EQ(authentication.getEncodedHeader(), "");
@@ -19,7 +19,7 @@ TEST_F(AuthenticationObjectTest, Basic)
 {
     Authentication authentication("jure", "jure123");
 
-    ASSERT_EQ(authentication.getType(), AuthenticationType::BASIC);
+    ASSERT_EQ(authentication.getType(), AuthenticationType::Basic);
     ASSERT_EQ(authentication.getUsername(), "jure");
     ASSERT_EQ(authentication.getPassword(), "jure123");
     ASSERT_EQ(authentication.getEncodedHeader(), "Basic anVyZTpqdXJlMTIz");
@@ -36,7 +36,7 @@ TEST_F(AuthenticationObjectTest, DecodeUsernamePasword)
 
     Authentication authentication = Authentication::fromHeader(header);
 
-    ASSERT_EQ(authentication.getType(), AuthenticationType::BASIC);
+    ASSERT_EQ(authentication.getType(), AuthenticationType::Basic);
     ASSERT_EQ(authentication.getUsername(), "username");
     ASSERT_EQ(authentication.getPassword(), "password");
     ASSERT_EQ(authentication.getEncodedHeader(), header);
@@ -48,7 +48,7 @@ TEST_F(AuthenticationObjectTest, DecodeUsernamePasswordEmpty)
 
     Authentication authentication = Authentication::fromHeader(header);
 
-    ASSERT_EQ(authentication.getType(), AuthenticationType::BASIC);
+    ASSERT_EQ(authentication.getType(), AuthenticationType::Basic);
     ASSERT_EQ(authentication.getUsername(), "");
     ASSERT_EQ(authentication.getPassword(), "");
     ASSERT_EQ(authentication.getEncodedHeader(), header);

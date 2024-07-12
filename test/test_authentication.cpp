@@ -144,7 +144,7 @@ TEST_F(AuthenticationTest, AllowOnlyAnonymous)
 {
     auto authCallback = [this](const Authentication& authentication)
     {
-        return authentication.getType() == AuthenticationType::ANONYMOUS;
+        return authentication.getType() == AuthenticationType::Anonymous;
     };
 
     auto server = createServer(authCallback);

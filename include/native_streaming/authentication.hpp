@@ -24,8 +24,8 @@ BEGIN_NAMESPACE_NATIVE_STREAMING
 /// @brief Authentication type enum describes how to encode authentication information
 enum class AuthenticationType
 {
-    ANONYMOUS,
-    BASIC
+    Anonymous,
+    Basic
 };
 
 
@@ -36,15 +36,25 @@ public:
     Authentication();
     Authentication(const std::string& username, const std::string& password);
 
+    /// @breif Parses a header string into authentication information structure. For example
+    /// basic Authorization header is usually encoded as "Basic base64(username:password)"
     static Authentication fromHeader(const std::string& header);
 
+    /// @brief Authentication type (anonymous, username / password, ...)
     AuthenticationType getType() const;
+
+    /// @brief Username as a string
     std::string getUsername() const;
+
+    /// @brief Plain text password as a string
     std::string getPassword() const;
+
+    /// @brief Returns encoded (Authorization) header as a string. For example basic Authorization
+    /// header is usually encoded as "Basic base64(username:password)"
     std::string getEncodedHeader() const;
 
 private:
-    AuthenticationType type = AuthenticationType::ANONYMOUS;
+    AuthenticationType type = AuthenticationType::Anonymous;
     std::string username;
     std::string password;
 };

@@ -182,12 +182,13 @@ void Server::onReadAcceptRequest(const boost::system::error_code& ec,
         { res.set(boost::beast::http::field::server, std::string(BOOST_BEAST_VERSION_STRING) + " openDAQ-streaming-server"); }));
 
     // Accept the upgrade request
-    wsStream->async_accept(request,
-                           [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ecc)
-                           {
-                               if (auto shared_self = weak_self.lock())
-                                   onUpgradeConnection(ecc, wsStream);
-                           });
+    boost_compatibility_utils::async_accept(*wsStream,
+                                            request,
+                                            [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ecc)
+                                            {
+                                                if (auto shared_self = weak_self.lock())
+                                                    onUpgradeConnection(ecc, wsStream);
+                                            });
 }
 
 void Server::onUpgradeConnection(const boost::system::error_code& ec, std::shared_ptr<WebsocketStream> wsStream)
