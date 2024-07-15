@@ -1,0 +1,36 @@
+name: Check License Agreement in headers
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+jobs:
+  check_headers:
+    runs-on: ubuntu-22.04
+    name: Check Source Headers
+    timeout-minutes: 2
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install license-header-checker to ./tools/license-header-checker/bin
+        working-directory: ./tools/license-header-checker
+        run: ./do-license-header-check.sh --install
+
+      - name: Run license check and modification (container only)
+        working-directory: ./tools/license-header-checker
+        run: ./do-license-header-check.sh --fix
+
+      - name: Show changed files and fail if there are any
+        id: check-status
+        run: |
+            git status -s
+            [[ -z `git status -s` ]]
+
+      - name: Show hint for fix (on failure)
+        if: failure() && steps.check-status.outcome == 'failure'
+        run: |
+            echo "Please run './tools/license-header-checker/do-license-header-check.sh --fix' from bash to repair the headers."
+            echo "Or add the files to './tools/license-header-checker/ignore-filter.txt' if no header desired."
+            exit 1
