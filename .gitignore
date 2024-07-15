@@ -1,2 +1,6 @@
 build
 .vscode
+
+# license-header-checker
+tools/license-header-checker/bin/
+tools/license-header-checker/*.log
