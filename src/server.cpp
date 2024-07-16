@@ -167,7 +167,7 @@ void Server::onReadAcceptRequest(const boost::system::error_code& ec,
         if (request.count(boost::beast::http::field::authorization))
         {
             const auto authorizationHeader = request[boost::beast::http::field::authorization];
-            authentication = Authentication::fromHeader(authorizationHeader);
+            authentication = Authentication::fromHeader(std::string(authorizationHeader));
         }
     }
     catch (...)
