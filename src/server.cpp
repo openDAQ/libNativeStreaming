@@ -39,14 +39,15 @@ boost::system::error_code Server::start(uint16_t port)
             tcpAcceptorV4.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
             tcpAcceptorV4.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port));
             tcpAcceptorV4.listen();
+            startTcpAccept(tcpAcceptorV4);
+            hasTcpAcceptor = true;
         }
         catch (const boost::system::system_error& e)
         {
             NS_LOG_W("Server failed to initialize tcp V4 acceptor: {}", e.code().message());
             ec = e.code();
+            tcpAcceptorV4.close();
         }
-        startTcpAccept(tcpAcceptorV4);
-        hasTcpAcceptor = true;
     }
     else
     {
@@ -62,14 +63,15 @@ boost::system::error_code Server::start(uint16_t port)
             tcpAcceptorV6.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
             tcpAcceptorV6.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v6(), port));
             tcpAcceptorV6.listen();
+            startTcpAccept(tcpAcceptorV6);
+            hasTcpAcceptor = true;
         }
         catch (const boost::system::system_error& e)
         {
             NS_LOG_W("Server failed to initialize tcp V6 acceptor: {}", e.code().message());
             ec = e.code();
+            tcpAcceptorV6.close();
         }
-        startTcpAccept(tcpAcceptorV6);
-        hasTcpAcceptor = true;
     }
     else
     {
@@ -87,6 +89,9 @@ boost::system::error_code Server::start(uint16_t port)
 
 void Server::startTcpAccept(boost::asio::ip::tcp::acceptor& tcpAcceptor)
 {
+    if (!tcpAcceptor.is_open())
+        return;
+
     tcpAcceptor.async_accept(
         [this, weak_self = weak_from_this(), &tcpAcceptor](const boost::system::error_code& ec, boost::asio::ip::tcp::socket&& socket)
         {
@@ -121,9 +126,9 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
         else
         {
             NS_LOG_E("accept failed {}", ec.message());
+            startTcpAccept(tcpAcceptor);
         }
 
-        startTcpAccept(tcpAcceptor);
         return;
     }
 
