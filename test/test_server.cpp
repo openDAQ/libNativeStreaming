@@ -12,7 +12,8 @@ public:
     const OnNewSessionCallback onUnusedSessionCallback = [](std::shared_ptr<Session>) {};
 
     /// Everyone is authenticated by default
-    const OnAuthenticateCallback onAuthenticateCallback = [](const Authentication& authentication) { return true; };
+    const OnAuthenticateCallback onAuthenticateCallback = [](const Authentication& authentication, std::shared_ptr<void>& userContextOut)
+    { return true; };
 };
 
 TEST_F(ServerTest, ServerCreate)

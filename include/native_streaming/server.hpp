@@ -22,7 +22,7 @@
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
-using OnAuthenticateCallback = std::function<bool(const Authentication& authentication)>;
+using OnAuthenticateCallback = std::function<bool(const Authentication& authentication, std::shared_ptr<void>& userContextOut)>;
 
 /// @brief accepts incoming connections on specified port, creates and returns new Session object via
 /// callback for each connected client
@@ -66,7 +66,10 @@ private:
     /// @brief callback called when web-socket handshake finished for new connection
     /// @param ec error_code object indicates handshake failure
     /// @param wsStream websocket stream object associated with connection
-    void onUpgradeConnection(const boost::system::error_code& ec, std::shared_ptr<WebsocketStream> wsStream);
+    /// @param user context, usualy a pointer to the authenticated user object
+    void onUpgradeConnection(const boost::system::error_code& ec,
+                             std::shared_ptr<WebsocketStream> wsStream,
+                             const std::shared_ptr<void>& userContext);
 
     /// @brief starts accepting incoming Tcp asynchronously with specified acceptor
     /// @param tcpAcceptor Tcp connection acceptor
@@ -78,8 +81,9 @@ private:
 
     /// @brief creates a connection Session using provided web-socket stream object
     /// @param wsStream web-socket stream object which provides as a R/W interface for connection
+    /// @param user context, usualy a pointer to the authenticated user object
     /// @return pointer to created Session object
-    std::shared_ptr<Session> createSession(std::shared_ptr<WebsocketStream> wsStream);
+    std::shared_ptr<Session> createSession(std::shared_ptr<WebsocketStream> wsStream, const std::shared_ptr<void>& userContext);
 
     /// async operations handler
     std::shared_ptr<boost::asio::io_context> ioContextPtr;

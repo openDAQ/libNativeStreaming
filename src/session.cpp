@@ -7,11 +7,13 @@ static std::chrono::milliseconds defaultHeartbeatPeriod = std::chrono::milliseco
 
 Session::Session(std::shared_ptr<boost::asio::io_context> ioContextPtr,
                  std::shared_ptr<WebsocketStream> wsStream,
+                 std::shared_ptr<void> userContext,
                  boost::beast::role_type role,
                  LogCallback logCallback)
     : role(role)
     , logCallback(logCallback)
     , ioContextPtr(ioContextPtr)
+    , userContext(userContext)
     , reader(std::make_shared<AsyncReader>(*ioContextPtr, wsStream, logCallback))
     , writer(std::make_shared<AsyncWriter>(*ioContextPtr, wsStream, logCallback))
     , wsStream(wsStream)
@@ -160,6 +162,11 @@ void Session::startConnectionActivityMonitoring(OnConnectionAliveCallback connec
 bool Session::isOpen()
 {
     return wsStream->is_open();
+}
+
+std::shared_ptr<void> Session::getUserContext()
+{
+    return userContext;
 }
 
 END_NAMESPACE_NATIVE_STREAMING
