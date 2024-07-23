@@ -35,7 +35,7 @@ public:
             serverConnectedPromise.set_value();
         };
 
-        onAuthenticateCallback = [this](const Authentication& authentication) 
+        onAuthenticateCallback = [this](const Authentication& authentication, std::shared_ptr<void>& userContextOut) 
         {
             return true; 
         };

@@ -111,7 +111,7 @@ void Client::onUpgradeConnection(const boost::system::error_code& ec, std::share
 
 std::shared_ptr<Session> Client::createSession(std::shared_ptr<WebsocketStream> wsStream)
 {
-    return std::make_shared<Session>(ioContextPtr, wsStream, boost::beast::role_type::client, logCallback);
+    return std::make_shared<Session>(ioContextPtr, wsStream, nullptr, boost::beast::role_type::client, logCallback);
 }
 
 END_NAMESPACE_NATIVE_STREAMING

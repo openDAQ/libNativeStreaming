@@ -11,9 +11,10 @@ class AuthenticationTest : public ConnectionTest
 public:
     std::shared_ptr<Server> createServer(const OnAuthenticateCallback& onAuthenticateCallback)
     {
-        auto wrappedAuthenticateCallback = [this, onAuthenticateCallback](const Authentication& authentication)
+        auto wrappedAuthenticateCallback =
+            [this, onAuthenticateCallback](const Authentication& authentication, std::shared_ptr<void>& userContextOut)
         {
-            const bool authenticated = onAuthenticateCallback(authentication);
+            const bool authenticated = onAuthenticateCallback(authentication, userContextOut);
 
             // on failed authentication we should stop waiting for server session, only for testing purposes
             if (!authenticated)
@@ -62,7 +63,7 @@ public:
 
 TEST_F(AuthenticationTest, AllowAll)
 {
-    auto authCallback = [](const Authentication& authentication) { return true; };
+    auto authCallback = [](const Authentication& authentication, std::shared_ptr<void>& userContextOut) { return true; };
 
     auto server = createServer(authCallback);
     server->start(CONNECTION_PORT);
@@ -85,7 +86,7 @@ TEST_F(AuthenticationTest, AllowAll)
 
 TEST_F(AuthenticationTest, DenyAll)
 {
-    auto authCallback = [this](const Authentication& authentication) { return false; };
+    auto authCallback = [this](const Authentication& authentication, std::shared_ptr<void>& userContextOut) { return false; };
 
     auto server = createServer(authCallback);
     server->start(CONNECTION_PORT);
@@ -108,7 +109,7 @@ TEST_F(AuthenticationTest, DenyAll)
 
 TEST_F(AuthenticationTest, AllowCorrect)
 {
-    auto authCallback = [this](const Authentication& authentication)
+    auto authCallback = [this](const Authentication& authentication, std::shared_ptr<void>& userContextOut)
     {
         return authentication.getUsername() == "jure" && authentication.getPassword() == "jure123";
     };
@@ -142,7 +143,7 @@ TEST_F(AuthenticationTest, AllowCorrect)
 
 TEST_F(AuthenticationTest, AllowOnlyAnonymous)
 {
-    auto authCallback = [this](const Authentication& authentication)
+    auto authCallback = [this](const Authentication& authentication, std::shared_ptr<void>& userContextOut)
     {
         return authentication.getType() == AuthenticationType::Anonymous;
     };
@@ -164,4 +165,34 @@ TEST_F(AuthenticationTest, AllowOnlyAnonymous)
     waitForConnection();
     ASSERT_TRUE(serverSession.operator bool());
     ASSERT_TRUE(clientSession.operator bool());
+}
+
+TEST_F(AuthenticationTest, UserContext)
+{
+    std::string userContextStr;
+
+    onNewServerSessionCallback = [this, &userContextStr](std::shared_ptr<Session> session)
+    {
+        serverSession = session;
+        serverConnectedPromise.set_value();
+        auto userContext = session->getUserContext();
+        userContextStr = *std::static_pointer_cast<std::string>(userContext);
+    };
+
+    auto authCallback = [this](const Authentication& authentication, std::shared_ptr<void>& userContextOut)
+    {
+        userContextOut = std::make_shared<std::string>("jureContext");
+        return authentication.getUsername() == "jure" && authentication.getPassword() == "jure123";
+    };
+
+    auto server = createServer(authCallback);
+    server->start(CONNECTION_PORT);
+
+    auto client = createClient(Authentication("jure", "jure123"));
+    client->connect();
+
+    waitForConnection();
+    ASSERT_TRUE(serverSession.operator bool());
+    ASSERT_TRUE(clientSession.operator bool());
+    ASSERT_EQ("jureContext", userContextStr);
 }

@@ -175,7 +175,8 @@ void Server::onReadAcceptRequest(const boost::system::error_code& ec,
         NS_LOG_W("Server recieved invalid authenitcation information");
     }
 
-    if (!onAuthenticateCallback(authentication))
+    std::shared_ptr<void> userContext;
+    if (!onAuthenticateCallback(authentication, userContext))
     {
         NS_LOG_I("Websocket authenticaiton failed");
         return;
@@ -189,14 +190,16 @@ void Server::onReadAcceptRequest(const boost::system::error_code& ec,
     // Accept the upgrade request
     boost_compatibility_utils::async_accept(*wsStream,
                                             request,
-                                            [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ecc)
+                                            [this, weak_self = weak_from_this(), wsStream, userContext](const boost::system::error_code& ecc)
                                             {
                                                 if (auto shared_self = weak_self.lock())
-                                                    onUpgradeConnection(ecc, wsStream);
+                                                    onUpgradeConnection(ecc, wsStream, userContext);
                                             });
 }
 
-void Server::onUpgradeConnection(const boost::system::error_code& ec, std::shared_ptr<WebsocketStream> wsStream)
+void Server::onUpgradeConnection(const boost::system::error_code& ec,
+                                 std::shared_ptr<WebsocketStream> wsStream,
+                                 const std::shared_ptr<void>& userContext)
 {
     std::string id = wsStream->next_layer().socket().remote_endpoint().address().to_string() + ":" +
                      std::to_string(wsStream->next_layer().socket().remote_endpoint().port());
@@ -207,12 +210,12 @@ void Server::onUpgradeConnection(const boost::system::error_code& ec, std::share
     }
 
     NS_LOG_I("Client {} - websocket connection accepted", id);
-    onNewSessionCallback(createSession(wsStream));
+    onNewSessionCallback(createSession(wsStream, userContext));
 }
 
-std::shared_ptr<Session> Server::createSession(std::shared_ptr<WebsocketStream> wsStream)
+std::shared_ptr<Session> Server::createSession(std::shared_ptr<WebsocketStream> wsStream, const std::shared_ptr<void>& userContext)
 {
-    return std::make_shared<Session>(ioContextPtr, wsStream, boost::beast::role_type::server, logCallback);
+    return std::make_shared<Session>(ioContextPtr, wsStream, userContext, boost::beast::role_type::server, logCallback);
 }
 
 END_NAMESPACE_NATIVE_STREAMING

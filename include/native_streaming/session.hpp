@@ -34,6 +34,7 @@ class Session : public std::enable_shared_from_this<Session>
 public:
     explicit Session(std::shared_ptr<boost::asio::io_context> ioContextPtr,
                      std::shared_ptr<WebsocketStream> wsStream,
+                     std::shared_ptr<void> userContext,
                      boost::beast::role_type role,
                      LogCallback logCallback);
     ~Session();
@@ -67,6 +68,10 @@ public:
 
     /// @brief returns true if websocket stream related to session is open, false otherwise
     bool isOpen();
+
+    /// @brief returns user context object, usualy a pointer to the authenticated user object
+    std::shared_ptr<void> getUserContext();
+
 private:
     /// @brief applies additional settings to web-socket stream
     void setOptions();
@@ -98,6 +103,9 @@ private:
 
     /// @brief web-socket stream object which provides as a R/W interface for connection
     std::shared_ptr<WebsocketStream> wsStream;
+
+    /// @brief user context, usualy a pointer to the authenticated user object
+    std::shared_ptr<void> userContext;
 
     /// @brief timer used to send websocket pongs
     std::shared_ptr<boost::asio::steady_timer> heartbeatTimer;
