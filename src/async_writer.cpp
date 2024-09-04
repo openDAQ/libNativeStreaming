@@ -13,12 +13,12 @@ AsyncWriter::AsyncWriter(boost::asio::io_context& ioContextRef, std::shared_ptr<
 {
 }
 
-void AsyncWriter::scheduleWrite(const std::vector<WriteTask>& tasks)
+void AsyncWriter::scheduleWrite(std::vector<WriteTask>&& tasks)
 {
     ioContextRef.post(strand.wrap(
-        [this, tasks, shared_self = shared_from_this()]()
+        [this, tasks = std::move(tasks), shared_self = shared_from_this()]() mutable
         {
-            queueWriteTasks(tasks);
+            queueWriteTasks(std::move(tasks));
         }));
 }
 
@@ -32,10 +32,10 @@ void AsyncWriter::setConnectionAliveHandler(OnConnectionAliveCallback connection
     this->connectionAliveCallback = connectionAliveCallback;
 }
 
-void AsyncWriter::queueWriteTasks(const std::vector<WriteTask>& tasks)
+void AsyncWriter::queueWriteTasks(std::vector<WriteTask>&& tasks)
 {
     bool writing = !writeTasksQueue.empty();
-    writeTasksQueue.push(tasks);
+    writeTasksQueue.push(std::move(tasks));
     if (!writing)
     {
         doWrite(writeTasksQueue.front());
@@ -45,6 +45,8 @@ void AsyncWriter::queueWriteTasks(const std::vector<WriteTask>& tasks)
 void AsyncWriter::doWrite(const std::vector<WriteTask>& tasks)
 {
     std::vector<boost::asio::const_buffer> buffers;
+    buffers.reserve(tasks.size());
+
     for (const auto& task : tasks)
     {
         buffers.push_back(task.getBuffer());
@@ -60,7 +62,8 @@ void AsyncWriter::doWrite(const std::vector<WriteTask>& tasks)
 
 void AsyncWriter::writeDone(const boost::system::error_code& ec, std::size_t size)
 {
-    auto tasks = writeTasksQueue.front();
+    const auto& tasks = writeTasksQueue.front();
+    const auto tasksSize = tasks.size();
     for (const auto& task : tasks)
     {
         auto handler = task.getHandler();
@@ -72,7 +75,7 @@ void AsyncWriter::writeDone(const boost::system::error_code& ec, std::size_t siz
     {
         this->connectionAliveCallback();
 
-        NS_LOG_T("Write done - tasks count: {}, bytes written: {}", tasks.size(), size);
+        NS_LOG_T("Write done - tasks count: {}, bytes written: {}", tasksSize, size)
         if (!writeTasksQueue.empty())
         {
             doWrite(writeTasksQueue.front());

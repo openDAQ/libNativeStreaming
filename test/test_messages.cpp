@@ -110,7 +110,7 @@ TEST_F(MessagesTest, MessagesFromServerToClient)
         tasks.push_back(WriteTask(buffer, writeHandler));
         sent << *payloadString;
     }
-    serverSession->scheduleWrite(tasks);
+    serverSession->scheduleWrite(std::move(tasks));
     clientSession->scheduleRead(ReadTask(onClientReadCallback, sent.str().size()));
 
     EXPECT_EQ(clientReadFuture.wait_for(timeout), std::future_status::ready);
@@ -140,7 +140,7 @@ TEST_F(MessagesTest, MessagesFromClientToServer)
         tasks.push_back(WriteTask(buffer, writeHandler));
         sent << *payloadString;
     }
-    clientSession->scheduleWrite(tasks);
+    clientSession->scheduleWrite(std::move(tasks));
     serverSession->scheduleRead(ReadTask(onServerReadCallback, sent.str().size()));
 
     EXPECT_EQ(serverReadFuture.wait_for(timeout), std::future_status::ready);
@@ -179,7 +179,7 @@ TEST_F(MessagesTest, MessagesBidirectional)
             tasks.push_back(WriteTask(buffer, writeHandler));
             serverSent << *payloadString;
         }
-        serverSession->scheduleWrite(tasks);
+        serverSession->scheduleWrite(std::move(tasks));
     }
     std::stringstream clientSent;
     {
@@ -193,7 +193,7 @@ TEST_F(MessagesTest, MessagesBidirectional)
             tasks.push_back(WriteTask(buffer, writeHandler));
             clientSent << *payloadString;
         }
-        clientSession->scheduleWrite(tasks);
+        clientSession->scheduleWrite(std::move(tasks));
     }
 
     serverSession->scheduleRead(ReadTask(onServerReadCallback, clientSent.str().size()));
@@ -279,7 +279,7 @@ TEST_F(MessagesTest, SplitMessages)
                     boost::asio::const_buffer buffer(payloadString->data(), payloadString->size());
                     tasks.push_back(WriteTask(buffer, writeHandler));
                 }
-                writerSession->scheduleWrite(tasks);
+                writerSession->scheduleWrite(std::move(tasks));
             }
         });
 
@@ -370,7 +370,7 @@ TEST_F(MessagesTest, SplitMessagesMultiThread)
             boost::asio::const_buffer buffer(payloadString->data(), payloadString->size());
             tasks.push_back(WriteTask(buffer, writeHandler));
         }
-        writerSession->scheduleWrite(tasks);
+        writerSession->scheduleWrite(std::move(tasks));
     };
 
     auto oddWriterLambda = [&]()
@@ -455,8 +455,10 @@ TEST_F(MessagesTest, ConnectionActivityMonitoring)
     boost::asio::const_buffer buffer(symbol.get(), sizeof(*symbol));
     tasks.push_back(WriteTask(buffer, writeHandler));
 
-    serverSession->scheduleWrite(tasks);
-    clientSession->scheduleWrite(tasks);
+    auto serverTasks = tasks;
+
+    serverSession->scheduleWrite(std::move(serverTasks));
+    clientSession->scheduleWrite(std::move(tasks));
 
     EXPECT_EQ(serverReadFuture.wait_for(timeout), std::future_status::ready);
     EXPECT_EQ(clientReadFuture.wait_for(timeout), std::future_status::ready);

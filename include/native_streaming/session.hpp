@@ -49,7 +49,7 @@ public:
 
     /// @brief schedules write tasks
     /// @param tasks write tasks to execute
-    void scheduleWrite(const std::vector<WriteTask>& tasks);
+    void scheduleWrite(std::vector<WriteTask>&& tasks);
 
     /// @brief shedule read sequence specified by entry read task
     /// @param entryTask first read task in a read sequence
