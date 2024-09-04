@@ -67,7 +67,7 @@ public:
 
     /// @brief schedules write tasks
     /// @param tasks write tasks to execute
-    void scheduleWrite(const std::vector<WriteTask>& tasks);
+    void scheduleWrite(std::vector<WriteTask>&& tasks);
 
     /// @brief sets a callback to be called when write operation is failed
     /// @param onErrorCallback callback
@@ -80,7 +80,7 @@ public:
 private:
     /// @brief pushes tasks into queue
     /// @param tasks write tasks to queue
-    void queueWriteTasks(const std::vector<WriteTask>& tasks);
+    void queueWriteTasks(std::vector<WriteTask>&& tasks);
 
     /// @brief wraps write operation call
     void doWrite(const std::vector<WriteTask>& tasks);

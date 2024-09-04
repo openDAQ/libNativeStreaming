@@ -99,9 +99,9 @@ void Session::scheduleRead(const ReadTask& entryTask)
     reader->scheduleRead(entryTask);
 }
 
-void Session::scheduleWrite(const std::vector<WriteTask>& tasks)
+void Session::scheduleWrite(std::vector<WriteTask>&& tasks)
 {
-    writer->scheduleWrite(tasks);
+    writer->scheduleWrite(std::move(tasks));
 }
 
 void Session::restartHeartbeatTimer()
