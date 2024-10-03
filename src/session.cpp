@@ -13,10 +13,10 @@ Session::Session(std::shared_ptr<boost::asio::io_context> ioContextPtr,
     : role(role)
     , logCallback(logCallback)
     , ioContextPtr(ioContextPtr)
-    , userContext(userContext)
     , reader(std::make_shared<AsyncReader>(*ioContextPtr, wsStream, logCallback))
     , writer(std::make_shared<AsyncWriter>(*ioContextPtr, wsStream, logCallback))
     , wsStream(wsStream)
+    , userContext(userContext)
     , heartbeatTimer(std::make_shared<boost::asio::steady_timer>(*ioContextPtr.get()))
     , heartbeatPeriod(defaultHeartbeatPeriod)
 {
@@ -167,6 +167,13 @@ bool Session::isOpen()
 std::shared_ptr<void> Session::getUserContext()
 {
     return userContext;
+}
+
+std::string Session::getEndpointAddress()
+{
+    std::string address = wsStream->next_layer().socket().remote_endpoint().address().to_string();
+    address += std::string(":") + std::to_string(wsStream->next_layer().socket().remote_endpoint().port());
+    return address;
 }
 
 END_NAMESPACE_NATIVE_STREAMING
