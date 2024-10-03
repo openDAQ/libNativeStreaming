@@ -72,6 +72,11 @@ public:
     /// @brief returns user context object, usualy a pointer to the authenticated user object
     std::shared_ptr<void> getUserContext();
 
+    /// @brief returns a string with the address in the format IP:port of the connection endpoint associated with the session.
+    /// for a client-side session, it returns the server address (e.g., 127.0.0.1:7420).
+    /// for a server-side session, it returns the address of the connected client (e.g., 127.0.0.1:53124).
+    std::string getEndpointAddress();
+
 private:
     /// @brief applies additional settings to web-socket stream
     void setOptions();
