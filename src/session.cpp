@@ -9,7 +9,8 @@ Session::Session(std::shared_ptr<boost::asio::io_context> ioContextPtr,
                  std::shared_ptr<WebsocketStream> wsStream,
                  std::shared_ptr<void> userContext,
                  boost::beast::role_type role,
-                 LogCallback logCallback)
+                 LogCallback logCallback,
+                 const std::string& endpointAddress)
     : role(role)
     , logCallback(logCallback)
     , ioContextPtr(ioContextPtr)
@@ -19,6 +20,7 @@ Session::Session(std::shared_ptr<boost::asio::io_context> ioContextPtr,
     , userContext(userContext)
     , heartbeatTimer(std::make_shared<boost::asio::steady_timer>(*ioContextPtr.get()))
     , heartbeatPeriod(defaultHeartbeatPeriod)
+    , endpointAddress(endpointAddress)
 {
     setOptions();
 }
@@ -173,9 +175,7 @@ std::shared_ptr<void> Session::getUserContext()
 
 std::string Session::getEndpointAddress()
 {
-    std::string address = wsStream->next_layer().socket().remote_endpoint().address().to_string();
-    address += std::string(":") + std::to_string(wsStream->next_layer().socket().remote_endpoint().port());
-    return address;
+    return endpointAddress;
 }
 
 void Session::setWriteTimedOutHandler(OnSessionErrorCallback writeTaskTimeoutHandler)

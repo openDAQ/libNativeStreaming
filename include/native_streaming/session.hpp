@@ -36,7 +36,8 @@ public:
                      std::shared_ptr<WebsocketStream> wsStream,
                      std::shared_ptr<void> userContext,
                      boost::beast::role_type role,
-                     LogCallback logCallback);
+                     LogCallback logCallback,
+                     const std::string& endpointAddress);
     ~Session();
 
     Session(const Session&) = delete;
@@ -122,6 +123,9 @@ private:
 
     /// @brief interval of sending the websocket pongs
     std::chrono::milliseconds heartbeatPeriod;
+
+    /// @brief string with the address in the format IP:port of the connection endpoint associated with the session
+    std::string endpointAddress;
 };
 
 END_NAMESPACE_NATIVE_STREAMING

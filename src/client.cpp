@@ -156,13 +156,25 @@ void Client::onUpgradeConnection(const boost::system::error_code& ec, std::share
         return;
     }
 
-    onNewSessionCallback(createSession(wsStream));
+    std::string endpointAddress;
+    try
+    {
+        auto remoteEp = wsStream->next_layer().socket().remote_endpoint();
+        endpointAddress = remoteEp.address().to_string() + ":" + std::to_string(remoteEp.port());
+    }
+    catch (const std::exception& e)
+    {
+        NS_LOG_E("Websocket connection aborted - cannot get connection endpoint: {}", e.what());
+        return;
+    }
+
+    onNewSessionCallback(createSession(wsStream, endpointAddress));
 }
 
-std::shared_ptr<Session> Client::createSession(std::shared_ptr<WebsocketStream> wsStream)
+std::shared_ptr<Session> Client::createSession(std::shared_ptr<WebsocketStream> wsStream, const std::string& endpointAddress)
 {
     websocketStream.reset();
-    return std::make_shared<Session>(ioContextPtr, wsStream, nullptr, boost::beast::role_type::client, logCallback);
+    return std::make_shared<Session>(ioContextPtr, wsStream, nullptr, boost::beast::role_type::client, logCallback, endpointAddress);
 }
 
 END_NAMESPACE_NATIVE_STREAMING
