@@ -201,21 +201,46 @@ void Server::onUpgradeConnection(const boost::system::error_code& ec,
                                  std::shared_ptr<WebsocketStream> wsStream,
                                  const std::shared_ptr<void>& userContext)
 {
-    std::string id = wsStream->next_layer().socket().remote_endpoint().address().to_string() + ":" +
-                     std::to_string(wsStream->next_layer().socket().remote_endpoint().port());
     if (ec)
     {
-        NS_LOG_E("Client {} - websocket connection failed: {}", id, ec.message());
+        NS_LOG_E("Connection failed to upgrade to websocket: {}", ec.message());
         return;
     }
 
-    NS_LOG_I("Client {} - websocket connection accepted", id);
-    onNewSessionCallback(createSession(wsStream, userContext));
+    // Pausing the server app with a debugger causes incoming re-/connection attempts to be rejected on the client side,
+    // but they remain queued on the server side. When the server resumes, it processes these connections,
+    // inevitably failing due to the sockets being in an invalid state. Although the socket appears open,
+    // it throws an exception when attempting to retrieve the endpoint address.
+    // To handle this, first verify the socket state and then safely attempt to retrieve the endpoint name.
+    std::string endpointAddress;
+    if (!(wsStream->is_open() && wsStream->next_layer().socket().is_open()))
+    {
+        NS_LOG_W("Websocket connection aborted: the socket is already closed");
+        return;
+    }
+    else
+    {
+        try
+        {
+            auto remoteEp = wsStream->next_layer().socket().remote_endpoint();
+            endpointAddress = remoteEp.address().to_string() + ":" + std::to_string(remoteEp.port());
+        }
+        catch (const std::exception& e)
+        {
+            NS_LOG_W("Websocket connection aborted - cannot get connection endpoint: {}", e.what());
+            return;
+        }
+    }
+
+    NS_LOG_I("Client {} - websocket connection accepted", endpointAddress);
+    onNewSessionCallback(createSession(wsStream, userContext, endpointAddress));
 }
 
-std::shared_ptr<Session> Server::createSession(std::shared_ptr<WebsocketStream> wsStream, const std::shared_ptr<void>& userContext)
+std::shared_ptr<Session> Server::createSession(std::shared_ptr<WebsocketStream> wsStream,
+                                               const std::shared_ptr<void>& userContext,
+                                               const std::string& endpointAddress)
 {
-    return std::make_shared<Session>(ioContextPtr, wsStream, userContext, boost::beast::role_type::server, logCallback);
+    return std::make_shared<Session>(ioContextPtr, wsStream, userContext, boost::beast::role_type::server, logCallback, endpointAddress);
 }
 
 END_NAMESPACE_NATIVE_STREAMING
