@@ -39,5 +39,6 @@ using WebsocketStream = boost::beast::websocket::stream<boost::beast::tcp_stream
 using OnRWCallback = std::function<void(const boost::system::error_code&, std::size_t)>;
 using OnCompleteCallback = std::function<void(const boost::system::error_code&)>;
 using OnConnectionAliveCallback = std::function<void()>;
+using OnWriteTaskTimedOutCallback = std::function<void()>;
 
 END_NAMESPACE_NATIVE_STREAMING

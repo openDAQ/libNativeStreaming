@@ -56,6 +56,9 @@ private:
     WriteHandler handler;
 };
 
+using BatchedWriteTasks = std::vector<WriteTask>;
+using OptionalWriteDeadline = std::optional<std::chrono::steady_clock::time_point>;
+
 /// @brief handles sending data thru web-socket connection.
 class AsyncWriter : public std::enable_shared_from_this<AsyncWriter>
 {
@@ -67,7 +70,8 @@ public:
 
     /// @brief schedules write tasks
     /// @param tasks write tasks to execute
-    void scheduleWrite(std::vector<WriteTask>&& tasks);
+    /// @param deadlineTime optional timepoint used as deadline time for group of WriteTasks
+    void scheduleWrite(BatchedWriteTasks&& tasks, OptionalWriteDeadline&& deadlineTime);
 
     /// @brief sets a callback to be called when write operation is failed
     /// @param onErrorCallback callback
@@ -77,18 +81,32 @@ public:
     /// @param connectionAliveCallback callback
     void setConnectionAliveHandler(OnConnectionAliveCallback connectionAliveCallback);
 
+    /// @brief sets a callback to be called when the write operation has not been scheduled due to a timeout reached
+    /// @param writeTaskTimeoutHandler callback
+    void setWriteTimedOutHandler(OnWriteTaskTimedOutCallback writeTaskTimeoutHandler);
+
 private:
+    using OptionalDeadlineTimer = std::unique_ptr<boost::asio::steady_timer>;
+    using BatchedWriteTasksWithDeadline = std::pair<BatchedWriteTasks, OptionalDeadlineTimer>;
+
     /// @brief pushes tasks into queue
     /// @param tasks write tasks to queue
-    void queueWriteTasks(std::vector<WriteTask>&& tasks);
+    /// @param deadlineTime optional timepoint used as deadline time for group of WriteTasks
+    void queueBatchWrite(BatchedWriteTasks&& tasks, OptionalWriteDeadline&& deadlineTime);
 
     /// @brief wraps write operation call
-    void doWrite(const std::vector<WriteTask>& tasks);
+    void doWrite(const BatchedWriteTasksWithDeadline& tasksWithDeadline);
 
     /// @brief called on each write operation completion
     /// @param ec error_codecode object indicates write failure
     /// @param size count of bytes written during operation
     void writeDone(const boost::system::error_code& ec, std::size_t);
+
+    /// @brief called when the deadline of batched write is reached
+    void onTimeoutReached();
+
+    /// @brief creates, configures and starts deadline timer for batched write task
+    OptionalDeadlineTimer setupDeadlineTimer(const std::chrono::steady_clock::time_point& deadline);
 
     /// @brief web-socket stream object which provides as a write interface for connection
     std::shared_ptr<WebsocketStream> wsStream;
@@ -102,11 +120,18 @@ private:
     /// @brief strand to wrap async write operations
     boost::asio::io_context::strand strand;
 
+    /// @brief Indicates that the deadline was reached for at least one write operation
+    bool timeoutReached;
+
     /// @brief queue for write tasks groups
-    std::queue<std::vector<WriteTask>> writeTasksQueue;
+    std::queue<BatchedWriteTasksWithDeadline> writeTasksQueue;
 
     /// @brief callback to be called when write operation is failed
     OnCompleteCallback errorHandler;
+
+    /// @brief Callback triggered when the write operation has not been scheduled due to a timeout reached,
+    /// usually as a result of low network bandwidth.
+    OnWriteTaskTimedOutCallback writeTaskTimeoutHandler = []() {};
 
     /// @brief Callback to be called on each completed write operation,
     /// confirming an active state of connection
