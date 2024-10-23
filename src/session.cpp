@@ -99,9 +99,9 @@ void Session::scheduleRead(const ReadTask& entryTask)
     reader->scheduleRead(entryTask);
 }
 
-void Session::scheduleWrite(std::vector<WriteTask>&& tasks)
+void Session::scheduleWrite(BatchedWriteTasks&& tasks, OptionalWriteDeadline&& deadlineTime)
 {
-    writer->scheduleWrite(std::move(tasks));
+    writer->scheduleWrite(std::move(tasks), std::move(deadlineTime));
 }
 
 void Session::restartHeartbeatTimer()
@@ -176,6 +176,18 @@ std::string Session::getEndpointAddress()
     std::string address = wsStream->next_layer().socket().remote_endpoint().address().to_string();
     address += std::string(":") + std::to_string(wsStream->next_layer().socket().remote_endpoint().port());
     return address;
+}
+
+void Session::setWriteTimedOutHandler(OnSessionErrorCallback writeTaskTimeoutHandler)
+{
+    writer->setWriteTimedOutHandler(
+        [writeTaskTimeoutHandler, weak_self = weak_from_this()]()
+        {
+            if (auto shared_self = weak_self.lock())
+            {
+                writeTaskTimeoutHandler("Write task timed out", shared_self);
+            }
+        });
 }
 
 END_NAMESPACE_NATIVE_STREAMING

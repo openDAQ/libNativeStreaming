@@ -49,7 +49,8 @@ public:
 
     /// @brief schedules write tasks
     /// @param tasks write tasks to execute
-    void scheduleWrite(std::vector<WriteTask>&& tasks);
+    /// @param deadlineTime optional timepoint used as deadline time for group of WriteTasks
+    void scheduleWrite(BatchedWriteTasks&& tasks, OptionalWriteDeadline&& deadlineTime = std::nullopt);
 
     /// @brief shedule read sequence specified by entry read task
     /// @param entryTask first read task in a read sequence
@@ -76,6 +77,10 @@ public:
     /// for a client-side session, it returns the server address (e.g., 127.0.0.1:7420).
     /// for a server-side session, it returns the address of the connected client (e.g., 127.0.0.1:53124).
     std::string getEndpointAddress();
+
+    /// @brief sets a callback to be called when the write operation has not been scheduled due to a timeout reached
+    /// @param writeTaskTimeoutHandler callback
+    void setWriteTimedOutHandler(OnSessionErrorCallback writeTaskTimeoutHandler);
 
 private:
     /// @brief applies additional settings to web-socket stream

@@ -1,7 +1,7 @@
 set_cmake_folder_context(TARGET_FOLDER_NAME)
 
 if (NOT TARGET spdlog)
-    set(spdlog_REQUIREDVERSION "1.8.0")
+    set(spdlog_REQUIREDVERSION "1.13.0")
 
     find_package(spdlog GLOBAL QUIET ${spdlog_REQUIREDVERSION})
     if(spdlog_FOUND)
