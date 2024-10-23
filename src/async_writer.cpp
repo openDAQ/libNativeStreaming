@@ -10,15 +10,16 @@ AsyncWriter::AsyncWriter(boost::asio::io_context& ioContextRef, std::shared_ptr<
     , logCallback(logCallback)
     , ioContextRef(ioContextRef)
     , strand(ioContextRef)
+    , timeoutReached(false)
 {
 }
 
-void AsyncWriter::scheduleWrite(std::vector<WriteTask>&& tasks)
+void AsyncWriter::scheduleWrite(BatchedWriteTasks&& tasks, OptionalWriteDeadline&& deadlineTime)
 {
     ioContextRef.post(strand.wrap(
-        [this, tasks = std::move(tasks), shared_self = shared_from_this()]() mutable
+        [this, tasks = std::move(tasks), deadlineTime = std::move(deadlineTime), shared_self = shared_from_this()]() mutable
         {
-            queueWriteTasks(std::move(tasks));
+            queueBatchWrite(std::move(tasks), std::move(deadlineTime));
         }));
 }
 
@@ -32,18 +33,44 @@ void AsyncWriter::setConnectionAliveHandler(OnConnectionAliveCallback connection
     this->connectionAliveCallback = connectionAliveCallback;
 }
 
-void AsyncWriter::queueWriteTasks(std::vector<WriteTask>&& tasks)
+void AsyncWriter::setWriteTimedOutHandler(OnWriteTaskTimedOutCallback writeTaskTimeoutHandler)
 {
+    this->writeTaskTimeoutHandler = writeTaskTimeoutHandler;
+}
+
+void AsyncWriter::queueBatchWrite(BatchedWriteTasks&& tasks, OptionalWriteDeadline&& deadlineTime)
+{
+    if (timeoutReached)
+        return;
+
+    OptionalDeadlineTimer deadlineTimer = nullptr;
+    if (deadlineTime.has_value())
+    {
+        auto now = std::chrono::steady_clock::now();
+        auto deadlineValue = deadlineTime.value();
+        if (now > deadlineValue)
+        {
+            onTimeoutReached();
+            return;
+        }
+        deadlineTimer = setupDeadlineTimer(deadlineValue);
+    }
+
     bool writing = !writeTasksQueue.empty();
-    writeTasksQueue.push(std::move(tasks));
+    writeTasksQueue.push(std::pair(std::move(tasks), std::move(deadlineTimer)));
     if (!writing)
     {
         doWrite(writeTasksQueue.front());
     }
 }
 
-void AsyncWriter::doWrite(const std::vector<WriteTask>& tasks)
+void AsyncWriter::doWrite(const BatchedWriteTasksWithDeadline& tasksWithDeadline)
 {
+    if (timeoutReached)
+        return;
+
+    const auto& tasks = tasksWithDeadline.first;
+
     std::vector<boost::asio::const_buffer> buffers;
     buffers.reserve(tasks.size());
 
@@ -62,13 +89,17 @@ void AsyncWriter::doWrite(const std::vector<WriteTask>& tasks)
 
 void AsyncWriter::writeDone(const boost::system::error_code& ec, std::size_t size)
 {
-    const auto& tasks = writeTasksQueue.front();
+    const auto& tasks = writeTasksQueue.front().first;
     const auto tasksSize = tasks.size();
     for (const auto& task : tasks)
     {
         auto handler = task.getHandler();
         handler();
     }
+
+    const auto& deadlineTimer = writeTasksQueue.front().second;
+    if (deadlineTimer)
+        deadlineTimer->cancel();
 
     writeTasksQueue.pop();
     if (!ec)
@@ -92,6 +123,34 @@ void AsyncWriter::writeDone(const boost::system::error_code& ec, std::size_t siz
             NS_LOG_E("Writing failed {}", ec.message());
         }
     }
+}
+
+void AsyncWriter::onTimeoutReached()
+{
+    if (timeoutReached)
+        return;
+
+    timeoutReached = true;
+    writeTaskTimeoutHandler();
+}
+
+AsyncWriter::OptionalDeadlineTimer AsyncWriter::setupDeadlineTimer(const std::chrono::steady_clock::time_point& deadline)
+{
+    auto deadlineTimer = std::make_unique<boost::asio::steady_timer>(ioContextRef);
+    deadlineTimer->expires_at(deadline);
+    deadlineTimer->async_wait(
+        [this, weak_self = weak_from_this()](const boost::system::error_code& ec)
+        {
+            if (ec)
+                return;
+
+            if (auto shared_self = weak_self.lock())
+            {
+                this->onTimeoutReached();
+            }
+        }
+    );
+    return deadlineTimer;
 }
 
 END_NAMESPACE_NATIVE_STREAMING

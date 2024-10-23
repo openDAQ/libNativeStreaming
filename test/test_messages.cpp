@@ -467,3 +467,93 @@ TEST_F(MessagesTest, ConnectionActivityMonitoring)
     ASSERT_EQ(clientActivityMarkersCnt, 2u);
     ASSERT_EQ(serverActivityMarkersCnt, 2u);
 }
+
+// Test parameters:
+// 1st - Number of write batches to schedule
+// 2nd - Latency delay in milliseconds introduced after the execution of each task in the batch
+// 3rd - Timeout duration in milliseconds for each batched write task
+// 4th - How many batched writes should succeed before the timeout occurs due to accumulated delay
+class WriteTimeoutTestP : public MessagesTest, public testing::WithParamInterface<std::tuple<size_t, size_t, size_t, size_t>>
+{
+};
+
+TEST_P(WriteTimeoutTestP, WriteTimeout)
+{
+    const size_t numBatchedWrites = std::get<0>(GetParam());
+    const size_t writeLatencyMs = std::get<1>(GetParam());
+    const size_t writeTimeoutMs = std::get<2>(GetParam());
+    const size_t expectedCompletedWrites = std::get<3>(GetParam());
+
+    const auto maxTestDuration = std::chrono::milliseconds(numBatchedWrites * writeLatencyMs + 1000);
+
+    using PromisePtr = std::shared_ptr<std::promise<void>>;
+
+    // Promise and future to handle the timeout event
+    auto writeTimedOutPromise = std::make_shared<std::promise<void>>();
+    std::future<void> writeTimedOutFuture = writeTimedOutPromise->get_future();
+
+    // Set the callback for write timeout error
+    auto onWriteTimeoutCallback = [writeTimedOutPromise](const std::string& message, std::shared_ptr<Session>)
+    {
+        writeTimedOutPromise->set_value();
+    };
+    serverSession->setWriteTimedOutHandler(onWriteTimeoutCallback);
+
+    size_t actualCompletedWrites = 0;
+
+    // Create the write task with a delay and increment actualCompletedWrites when it finishes
+    auto createWriteTask = [&actualCompletedWrites](PromisePtr writePromise, size_t delayMs, char symbol)
+    {
+        auto data = std::make_shared<char>(symbol);
+        auto writeHandler = [data, writePromise, delayMs, &actualCompletedWrites]()
+        {
+            actualCompletedWrites++;
+            writePromise->set_value();
+            std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
+        };
+        boost::asio::const_buffer buffer(data.get(), sizeof(*data));
+        return WriteTask(buffer, writeHandler);
+    };
+
+    // Store promises and futures for write completion
+    std::vector<PromisePtr> writePromises;
+    std::vector<std::future<void>> writeFutures;
+
+    for (size_t i = 0; i < numBatchedWrites; ++i)
+    {
+        auto promise = std::make_shared<std::promise<void>>();
+        writePromises.push_back(promise);
+        writeFutures.push_back(promise->get_future());
+
+        auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(writeTimeoutMs);
+        serverSession->scheduleWrite({createWriteTask(promise, writeLatencyMs, 'a')}, deadline);
+    }
+
+    // Check that the expected number of write tasks completed successfully
+    for (size_t i = 0; i < expectedCompletedWrites; ++i)
+    {
+        EXPECT_EQ(writeFutures[i].wait_for(maxTestDuration), std::future_status::ready) << "Write task " << i << " did not complete in time";
+    }
+
+    // Verify that the actual completed writes match the expected number
+    EXPECT_EQ(actualCompletedWrites, expectedCompletedWrites);
+
+    // If fewer writes were completed than scheduled, verify that the timeout occurred
+    if (expectedCompletedWrites < numBatchedWrites)
+    {
+        EXPECT_EQ(writeTimedOutFuture.wait_for(maxTestDuration), std::future_status::ready);
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    WriteTimeoutTests,
+    WriteTimeoutTestP,
+    testing::Values(
+        std::make_tuple(2, 100, 50, 1),
+        std::make_tuple(10, 100, 1100, 10),
+        std::make_tuple(10, 100, 900, 9),
+        std::make_tuple(10, 100, 899, 8),
+        std::make_tuple(10, 100, 699, 6),
+        std::make_tuple(10, 100, 199, 1)
+    )
+);
