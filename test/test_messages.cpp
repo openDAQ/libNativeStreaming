@@ -463,7 +463,7 @@ TEST_F(MessagesTest, ConnectionActivityMonitoring)
     EXPECT_EQ(serverReadFuture.wait_for(timeout), std::future_status::ready);
     EXPECT_EQ(clientReadFuture.wait_for(timeout), std::future_status::ready);
 
-    // 1 pong, 1 succedeed write op, 1 succedeed read op
-    ASSERT_EQ(clientActivityMarkersCnt, 3u);
-    ASSERT_EQ(serverActivityMarkersCnt, 3u);
+    // 1 pong, 1 succedeed read op, write operations ignored
+    ASSERT_EQ(clientActivityMarkersCnt, 2u);
+    ASSERT_EQ(serverActivityMarkersCnt, 2u);
 }

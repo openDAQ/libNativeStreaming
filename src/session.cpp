@@ -143,7 +143,9 @@ void Session::startConnectionActivityMonitoring(OnConnectionAliveCallback connec
     this->connectionAliveCallback = connectionAliveCallback;
     this->heartbeatPeriod = heartbeatPeriod;
     reader->setConnectionAliveHandler(connectionAliveCallback);
-    writer->setConnectionAliveHandler(connectionAliveCallback);
+    // do not treat a successful write as an indicator of alive connection as it can succeed
+    // even if the receiver is unreachable when intermediate network nodes present, such as a routers
+    //writer->setConnectionAliveHandler(connectionAliveCallback);
 
     wsStream->control_callback(
         [this, weak_self = weak_from_this()](boost::beast::websocket::frame_type kind, boost::beast::string_view /*payload*/)
