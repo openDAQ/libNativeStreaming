@@ -57,7 +57,7 @@ private:
 };
 
 using BatchedWriteTasks = std::vector<WriteTask>;
-using OptionalWriteDeadline = std::optional<std::chrono::system_clock::time_point>;
+using OptionalWriteDeadline = std::optional<std::chrono::steady_clock::time_point>;
 
 /// @brief handles sending data thru web-socket connection.
 class AsyncWriter : public std::enable_shared_from_this<AsyncWriter>

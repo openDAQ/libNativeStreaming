@@ -534,7 +534,7 @@ TEST_P(WriteTimeoutTestP, WriteTimeout)
         writePromises.push_back(promise);
         writeFutures.push_back(promise->get_future());
 
-        auto deadline = std::chrono::system_clock::now() + std::chrono::milliseconds(writeTimeoutMs);
+        auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(writeTimeoutMs);
         serverSession->scheduleWrite({createWriteTask(promise, writeLatencyMs, 'a')}, deadline);
     }
 

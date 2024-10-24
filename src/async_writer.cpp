@@ -55,13 +55,13 @@ void AsyncWriter::doWrite(const BatchedWriteTasksWithDeadline& tasksWithDeadline
 
     if (deadlineTimepoint.has_value())
     {
-        auto now = std::chrono::system_clock::now();
+        auto now = std::chrono::steady_clock::now();
         auto deadlineValue = deadlineTimepoint.value();
         if (now > deadlineValue)
         {
-            NS_LOG_E("Write task canceled due to timeout expiration: time-now {:%Y-%m-%d %H:%M:%S}, deadline-time {:%Y-%m-%d %H:%M:%S}",
-                     now,
-                     deadlineValue);
+            //NS_LOG_E("Write task canceled due to timeout expiration: time-now {:%Y-%m-%d %H:%M:%S}, deadline-time {:%Y-%m-%d %H:%M:%S}",
+            //         now,
+            //         deadlineValue);
             writeTaskTimeoutHandler();
             return;
         }
