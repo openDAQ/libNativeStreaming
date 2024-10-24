@@ -99,9 +99,9 @@ void Session::scheduleRead(const ReadTask& entryTask)
     reader->scheduleRead(entryTask);
 }
 
-void Session::scheduleWrite(std::vector<WriteTask>&& tasks)
+void Session::scheduleWrite(BatchedWriteTasks&& tasks, OptionalWriteDeadline&& deadlineTime)
 {
-    writer->scheduleWrite(std::move(tasks));
+    writer->scheduleWrite(std::move(tasks), std::move(deadlineTime));
 }
 
 void Session::restartHeartbeatTimer()
@@ -143,7 +143,9 @@ void Session::startConnectionActivityMonitoring(OnConnectionAliveCallback connec
     this->connectionAliveCallback = connectionAliveCallback;
     this->heartbeatPeriod = heartbeatPeriod;
     reader->setConnectionAliveHandler(connectionAliveCallback);
-    writer->setConnectionAliveHandler(connectionAliveCallback);
+    // do not treat a successful write as an indicator of alive connection as it can succeed
+    // even if the receiver is unreachable when intermediate network nodes present, such as a routers
+    //writer->setConnectionAliveHandler(connectionAliveCallback);
 
     wsStream->control_callback(
         [this, weak_self = weak_from_this()](boost::beast::websocket::frame_type kind, boost::beast::string_view /*payload*/)
@@ -174,6 +176,18 @@ std::string Session::getEndpointAddress()
     std::string address = wsStream->next_layer().socket().remote_endpoint().address().to_string();
     address += std::string(":") + std::to_string(wsStream->next_layer().socket().remote_endpoint().port());
     return address;
+}
+
+void Session::setWriteTimedOutHandler(OnSessionErrorCallback writeTaskTimeoutHandler)
+{
+    writer->setWriteTimedOutHandler(
+        [writeTaskTimeoutHandler, weak_self = weak_from_this()]()
+        {
+            if (auto shared_self = weak_self.lock())
+            {
+                writeTaskTimeoutHandler("Write task timed out", shared_self);
+            }
+        });
 }
 
 END_NAMESPACE_NATIVE_STREAMING

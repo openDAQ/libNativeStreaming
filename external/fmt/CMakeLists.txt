@@ -1,7 +1,7 @@
 set_cmake_folder_context(TARGET_FOLDER_NAME)
 
 if (NOT TARGET fmt)
-    set(fmt_REQUIREDVERSION "7.0.3")
+    set(fmt_REQUIREDVERSION "10.2.1")
     find_package(fmt GLOBAL QUIET ${fmt_REQUIREDVERSION} EXACT)
     if(fmt_FOUND)
         message(STATUS "Found fmt: ${fmt_VERSION} ${fmt_CONFIG}")
