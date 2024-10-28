@@ -38,3 +38,7 @@
 
 ## v1.0.11
  - Enable getting a connection endpoint address
+
+## v1.0.12
+ - Not treat a successful write as an indicator of alive connection
+ - Add deadline mechanism for scheduling batched write tasks
