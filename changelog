@@ -13,3 +13,28 @@
 
 ## v1.0.3
  - Fix MSVC-2017 Win32 compilation
+
+## v1.0.4
+ - Enable the server to accept connections when only one v4 or v6 protocol is available
+
+## v1.0.5
+ - Replace ping messages with unsolicited pongs in the heartbeat
+ - Utilize successful read/write operations as indicators of an active connection
+
+## v1.0.6
+ - Fix logging by explicitly specifying format function namespace
+
+## v1.0.7
+ - Add support for authentication for server and client
+
+## v1.0.8
+ - Fix tcp accept acceptor start and restart
+
+## v1.0.9
+ - Add user context to OnAuthenticate callback
+
+## v1.0.10
+ - Optimize write tasks by introducing move semantic methods
+
+## v1.0.11
+ - Enable getting a connection endpoint address
