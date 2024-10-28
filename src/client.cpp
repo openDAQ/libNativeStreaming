@@ -21,6 +21,8 @@ Client::Client(const std::string& host,
     , path(path)
     , authentication(authentication)
     , resolver(*ioContextPtr)
+    , connectionTimeoutTimer(*ioContextPtr)
+    , websocketStream(nullptr)
     , onNewSessionCallback(onNewSessionCallback)
     , onResolveFailCallback(onResolveFailCallback)
     , onConnectFailCallback(onConnectFailCallback)
@@ -30,12 +32,22 @@ Client::Client(const std::string& host,
 
 Client::~Client()
 {
+    connectionTimeoutTimer.cancel();
     NS_LOG_I("Shutting down the client");
 }
 
-void Client::connect()
+void Client::connect(const std::chrono::milliseconds& timeout)
 {
     NS_LOG_I("connecting to server: host {}, port {}, path {}", host, port, path);
+
+    connectionTimeoutTimer.cancel();
+    connectionTimeoutTimer.expires_from_now(timeout);
+    connectionTimeoutTimer.async_wait(
+        [this, weak_self = weak_from_this()](const boost::system::error_code& ec)
+        {
+            if (auto shared_self = weak_self.lock())
+                onConnectionTimeout(ec);
+        });
 
     resolver.async_resolve(
         host,
@@ -47,21 +59,41 @@ void Client::connect()
         });
 }
 
+void Client::onConnectionTimeout(const boost::system::error_code& ec)
+{
+    if (ec)
+        return;
+
+    resolver.cancel();
+    if (websocketStream)
+        websocketStream->next_layer().cancel();
+    websocketStream.reset();
+}
+
 void Client::onResolve(const boost::system::error_code& ec, boost::asio::ip::tcp::resolver::results_type results)
 {
     if (ec)
     {
-        NS_LOG_E("resolve failed {}", ec.message());
+        connectionTimeoutTimer.cancel();
+        if (ec.value() == boost::asio::error::operation_aborted)
+        {
+            NS_LOG_T("Resolve operation cancelled: {}", ec.message());
+        }
+        else
+        {
+            NS_LOG_E("Resolve operation failed {}", ec.message());
+        }
         onResolveFailCallback(ec);
         return;
     }
 
-    auto wsStream = std::make_shared<WebsocketStream>(*ioContextPtr);
-    wsStream->write_buffer_bytes(65536);
-    boost::beast::get_lowest_layer(*wsStream).async_connect(
+    websocketStream = std::make_shared<WebsocketStream>(*ioContextPtr);
+    websocketStream->write_buffer_bytes(65536);
+    boost::beast::get_lowest_layer(*websocketStream).async_connect(
         results,
-        [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ecc,
-                                                       boost::asio::ip::tcp::resolver::results_type::endpoint_type)
+        [this, weak_self = weak_from_this(), wsStream = websocketStream](
+            const boost::system::error_code& ecc,
+            boost::asio::ip::tcp::resolver::results_type::endpoint_type)
         {
             if (auto shared_self = weak_self.lock())
                 onConnect(ecc, wsStream);
@@ -72,7 +104,15 @@ void Client::onConnect(const boost::system::error_code& ec, std::shared_ptr<Webs
 {
     if (ec)
     {
-        NS_LOG_E("connect failed {}", ec.message());
+        connectionTimeoutTimer.cancel();
+        if (ec.value() == boost::asio::error::operation_aborted)
+        {
+            NS_LOG_T("Connect operation cancelled: {}", ec.message());
+        }
+        else
+        {
+            NS_LOG_E("Connect operation failed {}", ec.message());
+        }
         onConnectFailCallback(ec);
         return;
     }
@@ -99,10 +139,20 @@ void Client::onConnect(const boost::system::error_code& ec, std::shared_ptr<Webs
 
 void Client::onUpgradeConnection(const boost::system::error_code& ec, std::shared_ptr<WebsocketStream> wsStream)
 {
+    connectionTimeoutTimer.cancel();
+
     if (ec)
     {
-        NS_LOG_E("handshake failed {}", ec.message());
-        onHandshakeFailCallback(ec);
+        if (ec.value() == boost::asio::error::operation_aborted)
+        {
+            NS_LOG_T("Handshake operation cancelled: {}", ec.message());
+            onConnectFailCallback(ec);
+        }
+        else
+        {
+            NS_LOG_E("Handshake operation failed {}", ec.message());
+            onHandshakeFailCallback(ec);
+        }
         return;
     }
 
@@ -111,6 +161,7 @@ void Client::onUpgradeConnection(const boost::system::error_code& ec, std::share
 
 std::shared_ptr<Session> Client::createSession(std::shared_ptr<WebsocketStream> wsStream)
 {
+    websocketStream.reset();
     return std::make_shared<Session>(ioContextPtr, wsStream, nullptr, boost::beast::role_type::client, logCallback);
 }
 
