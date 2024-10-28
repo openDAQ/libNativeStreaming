@@ -44,9 +44,13 @@ public:
     /// 1. resolve address specified in Client constructor
     /// 2. connect to server using endpoind resolved from address
     /// 3. do web-socket handshake
-    void connect();
+    /// @param timeout duration in milliseconds after which a connection attempt is considered failed
+    /// and will be canceled
+    void connect(const std::chrono::milliseconds& timeout = std::chrono::milliseconds(1000));
 
 private:
+    void onConnectionTimeout(const boost::system::error_code& ec);
+
     /// @brief callback called when resolving of remote server address is finished
     /// @param ec error_code object indicates resolving failure
     /// @param results represents connection endpoint resolved from address
@@ -87,6 +91,12 @@ private:
 
     /// @brief The TCP resolver
     boost::asio::ip::tcp::resolver resolver;
+
+    /// @brief Handles the timeout for a connection attempt
+    boost::asio::steady_timer connectionTimeoutTimer;
+
+    /// @brief websocket stream object associated with connection, provides as a R/W interface for connection
+    std::shared_ptr<WebsocketStream> websocketStream;
 
     /// @brief callback used to provide newly created Session to outside world, e.g. to protocol handler
     OnNewSessionCallback onNewSessionCallback;
