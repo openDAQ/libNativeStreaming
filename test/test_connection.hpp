@@ -24,6 +24,34 @@
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
+/// Modified Server with artificial delays introduced
+class MockServer : public Server
+{
+public:
+    MockServer(OnNewSessionCallback onNewSessionCallback,
+               OnAuthenticateCallback onAuthenticateCallback,
+               std::shared_ptr<boost::asio::io_context> ioContextPtr,
+               LogCallback logCallback,
+               std::chrono::seconds delayAfterTcpConnectionAccepted)
+        : Server(onNewSessionCallback, onAuthenticateCallback, ioContextPtr, logCallback)
+        , delayAfterTcpConnectionAccepted(delayAfterTcpConnectionAccepted)
+    {
+    }
+
+protected:
+    void onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
+                               const boost::system::error_code& ec,
+                               boost::asio::ip::tcp::socket&& socket) override
+    {
+        if (!ec)
+            std::this_thread::sleep_for(delayAfterTcpConnectionAccepted);
+        Server::onAcceptTcpConnection(tcpAcceptor, ec, std::move(socket));
+    }
+
+private:
+    std::chrono::seconds delayAfterTcpConnectionAccepted;
+};
+
 class ConnectionTest : public TestBase
 {
 public:

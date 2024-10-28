@@ -33,6 +33,45 @@ TEST_F(ConnectionTest, Connect)
     clientSession.reset();
 }
 
+TEST_F(ConnectionTest, ConnectTimeoutFailure)
+{
+    auto server =
+        std::make_shared<MockServer>(onNewServerSessionCallback,
+                                     onAuthenticateCallback,
+                                     ioContextPtrServer,
+                                     logCallback,
+                                     std::chrono::seconds(2));
+    server->start(CONNECTION_PORT);
+
+    std::promise<void> connectionFailedPromise;
+    std::future<void> connectionFailedFuture = connectionFailedPromise.get_future();
+    OnCompleteCallback onConnectFailedCallback =
+        [&connectionFailedPromise](const boost::system::error_code& ec)
+    {
+        connectionFailedPromise.set_value();
+    };
+
+    auto client = std::make_shared<Client>(CONNECTION_HOST,
+                                           std::to_string(CONNECTION_PORT),
+                                           CONNECTION_PATH,
+                                           authentication,
+                                           onNewClientSessionCallback,
+                                           onResolveFailedCallback,
+                                           onConnectFailedCallback,
+                                           onHandshakeFailedCallback,
+                                           ioContextPtrClient,
+                                           logCallback);
+
+    std::chrono::milliseconds timeout(1000);
+    client->connect(timeout);
+
+    ASSERT_EQ(clientConnectedFuture.wait_for(timeout), std::future_status::timeout);
+    ASSERT_EQ(connectionFailedFuture.wait_for(timeout), std::future_status::ready);
+
+    serverSession.reset();
+    clientSession.reset();
+}
+
 TEST_F(ConnectionTest, ConnectIPv6)
 {
     auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
