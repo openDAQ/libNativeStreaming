@@ -46,31 +46,32 @@ public:
     /// @brief stops listening for incoming connections, stops async operation handling
     void stop();
 
-private:
+protected:
     /// @brief callback called when new Tcp connection acception finished by server
     /// @param tcpAcceptor Tcp acceptor which accepts connection
     /// @param ec error_code object indicates connection acception failed
     /// @param socket tcp socket associated with new connection
-    void onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
-                               const boost::system::error_code& ec,
-                               boost::asio::ip::tcp::socket&& socket);
+    virtual void onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
+                                       const boost::system::error_code& ec,
+                                       boost::asio::ip::tcp::socket&& socket);
 
     /// @brief callback called when connect request headers have been read by the server
     /// @param ec error_code object indicates if headers were read successfuly
     /// @param wsStream web-socket stream object which provides as a R/W interface for connection
     /// @param request object which holds connect request parameters
-    void onReadAcceptRequest(const boost::system::error_code& ec,
-                             const std::shared_ptr<WebsocketStream>& wsStream,
-                             boost::beast::http::request<boost::beast::http::string_body>& request);
+    virtual void onReadAcceptRequest(const boost::system::error_code& ec,
+                                     const std::shared_ptr<WebsocketStream>& wsStream,
+                                     boost::beast::http::request<boost::beast::http::string_body>& request);
 
     /// @brief callback called when web-socket handshake finished for new connection
     /// @param ec error_code object indicates handshake failure
     /// @param wsStream websocket stream object associated with connection
     /// @param user context, usualy a pointer to the authenticated user object
-    void onUpgradeConnection(const boost::system::error_code& ec,
-                             std::shared_ptr<WebsocketStream> wsStream,
-                             const std::shared_ptr<void>& userContext);
+    virtual void onUpgradeConnection(const boost::system::error_code& ec,
+                                     std::shared_ptr<WebsocketStream> wsStream,
+                                     const std::shared_ptr<void>& userContext);
 
+private:
     /// @brief starts accepting incoming Tcp asynchronously with specified acceptor
     /// @param tcpAcceptor Tcp connection acceptor
     void startTcpAccept(boost::asio::ip::tcp::acceptor& tcpAcceptor);
