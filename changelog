@@ -42,3 +42,6 @@
 ## v1.0.12
  - Not treat a successful write as an indicator of alive connection
  - Add deadline mechanism for scheduling batched write tasks
+
+## v1.0.13
+ - Add timeout constraint for connection establishment async operations
