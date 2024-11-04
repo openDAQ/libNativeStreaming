@@ -20,6 +20,7 @@
 #include <native_streaming/logging.hpp>
 #include <boost/asio/io_context_strand.hpp>
 #include <queue>
+#include <optional>
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 

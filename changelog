@@ -45,3 +45,6 @@
 
 ## v1.0.13
  - Add timeout constraint for connection establishment async operations
+
+## v1.0.14
+ - Fix missing include
