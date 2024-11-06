@@ -1,5 +1,6 @@
 #include <native_streaming/async_writer.hpp>
 #include <boost/asio/read.hpp>
+#include <boost/container/small_vector.hpp>
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
@@ -71,8 +72,7 @@ void AsyncWriter::doWrite(const BatchedWriteTasksWithDeadline& tasksWithDeadline
 
     const auto& tasks = tasksWithDeadline.first;
 
-    std::vector<boost::asio::const_buffer> buffers;
-    buffers.reserve(tasks.size());
+    boost::container::small_vector<boost::asio::const_buffer, 16> buffers;
 
     for (const auto& task : tasks)
     {
