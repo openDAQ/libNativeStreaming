@@ -33,11 +33,21 @@ BEGIN_NAMESPACE_NATIVE_STREAMING
 
 #define NS_LOG_W(message, ...) LOG(logCallback, spdlog::level::warn, message, ##__VA_ARGS__)
 
+#ifndef NDEBUG
+
 #define NS_LOG_T(message, ...) LOG(logCallback, spdlog::level::trace, message, ##__VA_ARGS__)
 
-#define NS_LOG_C(message, ...) LOG(logCallback, spdlog::level::critical, message, ##__VA_ARGS__)
-
 #define NS_LOG_D(message, ...) LOG(logCallback, spdlog::level::debug, message, ##__VA_ARGS__)
+
+#else
+
+#define NS_LOG_T(message, ...)
+
+#define NS_LOG_D(message, ...)
+
+#endif
+
+#define NS_LOG_C(message, ...) LOG(logCallback, spdlog::level::critical, message, ##__VA_ARGS__)
 
 using LogCallback = std::function<void(spdlog::source_loc location, spdlog::level::level_enum level, const char* msg)>;
 
