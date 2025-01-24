@@ -87,7 +87,7 @@ void AsyncWriter::doWrite(const BatchedWriteTasksWithDeadline& tasksWithDeadline
                               }));
 }
 
-void AsyncWriter::writeDone(const boost::system::error_code& ec, std::size_t size)
+void AsyncWriter::writeDone(const boost::system::error_code& ec, [[maybe_unused]] std::size_t size)
 {
     const auto& tasks = writeTasksQueue.front().first;
     const auto tasksSize = tasks.size();
