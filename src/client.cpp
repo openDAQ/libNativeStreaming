@@ -157,10 +157,12 @@ void Client::onUpgradeConnection(const boost::system::error_code& ec, std::share
     }
 
     std::string endpointAddress;
+    boost::asio::ip::port_type endpointPortNumber;
     try
     {
         auto remoteEp = wsStream->next_layer().socket().remote_endpoint();
-        endpointAddress = remoteEp.address().to_string() + ":" + std::to_string(remoteEp.port());
+        endpointAddress = remoteEp.address().to_string();
+        endpointPortNumber = remoteEp.port();
     }
     catch (const std::exception& e)
     {
@@ -168,13 +170,15 @@ void Client::onUpgradeConnection(const boost::system::error_code& ec, std::share
         return;
     }
 
-    onNewSessionCallback(createSession(wsStream, endpointAddress));
+    onNewSessionCallback(createSession(wsStream, endpointAddress, endpointPortNumber));
 }
 
-std::shared_ptr<Session> Client::createSession(std::shared_ptr<WebsocketStream> wsStream, const std::string& endpointAddress)
+std::shared_ptr<Session> Client::createSession(std::shared_ptr<WebsocketStream> wsStream,
+                                               const std::string& endpointAddress,
+                                               const boost::asio::ip::port_type& endpointPortNumber)
 {
     websocketStream.reset();
-    return std::make_shared<Session>(ioContextPtr, wsStream, nullptr, boost::beast::role_type::client, logCallback, endpointAddress);
+    return std::make_shared<Session>(ioContextPtr, wsStream, nullptr, boost::beast::role_type::client, logCallback, endpointAddress, endpointPortNumber);
 }
 
 END_NAMESPACE_NATIVE_STREAMING

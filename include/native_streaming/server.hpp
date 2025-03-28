@@ -83,11 +83,13 @@ private:
     /// @brief creates a connection Session using provided web-socket stream object
     /// @param wsStream web-socket stream object which provides as a R/W interface for connection
     /// @param user context, usualy a pointer to the authenticated user object
-    /// @param endpointAddress string with the address in the format IP:port of the connection endpoint associated with the session
+    /// @param endpointAddress the IP address of the connection endpoint associated with the session
+    /// @brief endpointPortNumber the port number of the connection endpoint associated with the session
     /// @return pointer to created Session object
     std::shared_ptr<Session> createSession(std::shared_ptr<WebsocketStream> wsStream,
                                            const std::shared_ptr<void>& userContext,
-                                           const std::string& endpointAddress);
+                                           const std::string& endpointAddress,
+                                           const boost::asio::ip::port_type& endpointPortNumber);
 
     /// async operations handler
     std::shared_ptr<boost::asio::io_context> ioContextPtr;

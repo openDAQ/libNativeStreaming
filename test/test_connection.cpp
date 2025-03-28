@@ -27,7 +27,8 @@ TEST_F(ConnectionTest, Connect)
     ASSERT_TRUE(serverSession.operator bool());
     ASSERT_TRUE(clientSession.operator bool());
 
-    ASSERT_EQ(clientSession->getEndpointAddress(), std::string(CONNECTION_HOST) + std::string(":") + std::to_string(CONNECTION_PORT));
+    ASSERT_EQ(clientSession->getEndpointAddress(), std::string(CONNECTION_HOST));
+    ASSERT_EQ(clientSession->getEndpointPortNumber(), CONNECTION_PORT);
 
     serverSession.reset();
     clientSession.reset();
@@ -95,7 +96,8 @@ TEST_F(ConnectionTest, ConnectIPv6)
     ASSERT_TRUE(serverSession.operator bool());
     ASSERT_TRUE(clientSession.operator bool());
 
-    ASSERT_EQ(clientSession->getEndpointAddress(), std::string("::1") + std::string(":") + std::to_string(CONNECTION_PORT));
+    ASSERT_EQ(clientSession->getEndpointAddress(), std::string("::1"));
+    ASSERT_EQ(clientSession->getEndpointPortNumber(), CONNECTION_PORT);
 
     serverSession.reset();
     clientSession.reset();

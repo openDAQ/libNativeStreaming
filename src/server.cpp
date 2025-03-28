@@ -213,6 +213,7 @@ void Server::onUpgradeConnection(const boost::system::error_code& ec,
     // it throws an exception when attempting to retrieve the endpoint address.
     // To handle this, first verify the socket state and then safely attempt to retrieve the endpoint name.
     std::string endpointAddress;
+    boost::asio::ip::port_type endpointPortNumber;
     if (!(wsStream->is_open() && wsStream->next_layer().socket().is_open()))
     {
         NS_LOG_W("Websocket connection aborted: the socket is already closed");
@@ -223,7 +224,8 @@ void Server::onUpgradeConnection(const boost::system::error_code& ec,
         try
         {
             auto remoteEp = wsStream->next_layer().socket().remote_endpoint();
-            endpointAddress = remoteEp.address().to_string() + ":" + std::to_string(remoteEp.port());
+            endpointAddress = remoteEp.address().to_string();
+            endpointPortNumber = remoteEp.port();
         }
         catch (const std::exception& e)
         {
@@ -233,14 +235,15 @@ void Server::onUpgradeConnection(const boost::system::error_code& ec,
     }
 
     NS_LOG_I("Client {} - websocket connection accepted", endpointAddress);
-    onNewSessionCallback(createSession(wsStream, userContext, endpointAddress));
+    onNewSessionCallback(createSession(wsStream, userContext, endpointAddress, endpointPortNumber));
 }
 
 std::shared_ptr<Session> Server::createSession(std::shared_ptr<WebsocketStream> wsStream,
                                                const std::shared_ptr<void>& userContext,
-                                               const std::string& endpointAddress)
+                                               const std::string& endpointAddress,
+                                               const boost::asio::ip::port_type& endpointPortNumber)
 {
-    return std::make_shared<Session>(ioContextPtr, wsStream, userContext, boost::beast::role_type::server, logCallback, endpointAddress);
+    return std::make_shared<Session>(ioContextPtr, wsStream, userContext, boost::beast::role_type::server, logCallback, endpointAddress, endpointPortNumber);
 }
 
 END_NAMESPACE_NATIVE_STREAMING
