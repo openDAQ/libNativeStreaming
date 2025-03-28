@@ -10,7 +10,8 @@ Session::Session(std::shared_ptr<boost::asio::io_context> ioContextPtr,
                  std::shared_ptr<void> userContext,
                  boost::beast::role_type role,
                  LogCallback logCallback,
-                 const std::string& endpointAddress)
+                 const std::string& endpointAddress,
+                 const boost::asio::ip::port_type& endpointPortNumber)
     : role(role)
     , logCallback(logCallback)
     , ioContextPtr(ioContextPtr)
@@ -21,6 +22,7 @@ Session::Session(std::shared_ptr<boost::asio::io_context> ioContextPtr,
     , heartbeatTimer(std::make_shared<boost::asio::steady_timer>(*ioContextPtr.get()))
     , heartbeatPeriod(defaultHeartbeatPeriod)
     , endpointAddress(endpointAddress)
+    , endpointPortNumber(endpointPortNumber)
 {
     setOptions();
 }
@@ -176,6 +178,11 @@ std::shared_ptr<void> Session::getUserContext()
 std::string Session::getEndpointAddress()
 {
     return endpointAddress;
+}
+
+boost::asio::ip::port_type Session::getEndpointPortNumber()
+{
+    return endpointPortNumber;
 }
 
 void Session::setWriteTimedOutHandler(OnSessionErrorCallback writeTaskTimeoutHandler)

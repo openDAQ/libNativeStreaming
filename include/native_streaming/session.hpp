@@ -37,7 +37,8 @@ public:
                      std::shared_ptr<void> userContext,
                      boost::beast::role_type role,
                      LogCallback logCallback,
-                     const std::string& endpointAddress);
+                     const std::string& endpointAddress,
+                     const boost::asio::ip::port_type& endpointPortNumber);
     ~Session();
 
     Session(const Session&) = delete;
@@ -74,10 +75,11 @@ public:
     /// @brief returns user context object, usualy a pointer to the authenticated user object
     std::shared_ptr<void> getUserContext();
 
-    /// @brief returns a string with the address in the format IP:port of the connection endpoint associated with the session.
-    /// for a client-side session, it returns the server address (e.g., 127.0.0.1:7420).
-    /// for a server-side session, it returns the address of the connected client (e.g., 127.0.0.1:53124).
+    /// @brief returns a string with the IP address of the connection endpoint associated with the session.
     std::string getEndpointAddress();
+
+    /// @brief returns a port number of the connection endpoint associated with the session.
+    boost::asio::ip::port_type getEndpointPortNumber();
 
     /// @brief sets a callback to be called when the write operation has not been scheduled due to a timeout reached
     /// @param writeTaskTimeoutHandler callback
@@ -124,8 +126,11 @@ private:
     /// @brief interval of sending the websocket pongs
     std::chrono::milliseconds heartbeatPeriod;
 
-    /// @brief string with the address in the format IP:port of the connection endpoint associated with the session
+    /// @brief string with the IP address in the format IP:port of the connection endpoint associated with the session
     std::string endpointAddress;
+
+    /// @brief port number of the connection endpoint associated with the session
+    boost::asio::ip::port_type endpointPortNumber;
 };
 
 END_NAMESPACE_NATIVE_STREAMING
