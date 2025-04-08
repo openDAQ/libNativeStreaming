@@ -89,7 +89,7 @@ private:
     std::shared_ptr<Session> createSession(std::shared_ptr<WebsocketStream> wsStream,
                                            const std::shared_ptr<void>& userContext,
                                            const std::string& endpointAddress,
-                                           const boost::asio::ip::port_type& endpointPortNumber);
+                                           const uint16_t& endpointPortNumber);
 
     /// async operations handler
     std::shared_ptr<boost::asio::io_context> ioContextPtr;

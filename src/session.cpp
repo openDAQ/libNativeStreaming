@@ -11,7 +11,7 @@ Session::Session(std::shared_ptr<boost::asio::io_context> ioContextPtr,
                  boost::beast::role_type role,
                  LogCallback logCallback,
                  const std::string& endpointAddress,
-                 const boost::asio::ip::port_type& endpointPortNumber)
+                 const uint16_t& endpointPortNumber)
     : role(role)
     , logCallback(logCallback)
     , ioContextPtr(ioContextPtr)
@@ -180,7 +180,7 @@ std::string Session::getEndpointAddress()
     return endpointAddress;
 }
 
-boost::asio::ip::port_type Session::getEndpointPortNumber()
+uint16_t Session::getEndpointPortNumber()
 {
     return endpointPortNumber;
 }
