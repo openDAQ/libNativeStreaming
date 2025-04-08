@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 openDAQ d.o.o.
+ * Copyright 2022-2025 openDAQ d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ public:
                      boost::beast::role_type role,
                      LogCallback logCallback,
                      const std::string& endpointAddress,
-                     const boost::asio::ip::port_type& endpointPortNumber);
+                     const uint16_t& endpointPortNumber);
     ~Session();
 
     Session(const Session&) = delete;
@@ -79,7 +79,7 @@ public:
     std::string getEndpointAddress();
 
     /// @brief returns a port number of the connection endpoint associated with the session.
-    boost::asio::ip::port_type getEndpointPortNumber();
+    uint16_t getEndpointPortNumber();
 
     /// @brief sets a callback to be called when the write operation has not been scheduled due to a timeout reached
     /// @param writeTaskTimeoutHandler callback
@@ -130,7 +130,7 @@ private:
     std::string endpointAddress;
 
     /// @brief port number of the connection endpoint associated with the session
-    boost::asio::ip::port_type endpointPortNumber;
+    uint16_t endpointPortNumber;
 };
 
 END_NAMESPACE_NATIVE_STREAMING

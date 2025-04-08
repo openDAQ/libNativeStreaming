@@ -213,7 +213,7 @@ void Server::onUpgradeConnection(const boost::system::error_code& ec,
     // it throws an exception when attempting to retrieve the endpoint address.
     // To handle this, first verify the socket state and then safely attempt to retrieve the endpoint name.
     std::string endpointAddress;
-    boost::asio::ip::port_type endpointPortNumber;
+    uint16_t endpointPortNumber;
     if (!(wsStream->is_open() && wsStream->next_layer().socket().is_open()))
     {
         NS_LOG_W("Websocket connection aborted: the socket is already closed");
@@ -241,7 +241,7 @@ void Server::onUpgradeConnection(const boost::system::error_code& ec,
 std::shared_ptr<Session> Server::createSession(std::shared_ptr<WebsocketStream> wsStream,
                                                const std::shared_ptr<void>& userContext,
                                                const std::string& endpointAddress,
-                                               const boost::asio::ip::port_type& endpointPortNumber)
+                                               const uint16_t& endpointPortNumber)
 {
     return std::make_shared<Session>(ioContextPtr, wsStream, userContext, boost::beast::role_type::server, logCallback, endpointAddress, endpointPortNumber);
 }

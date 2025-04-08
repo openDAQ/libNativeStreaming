@@ -157,7 +157,7 @@ void Client::onUpgradeConnection(const boost::system::error_code& ec, std::share
     }
 
     std::string endpointAddress;
-    boost::asio::ip::port_type endpointPortNumber;
+    uint16_t endpointPortNumber;
     try
     {
         auto remoteEp = wsStream->next_layer().socket().remote_endpoint();
@@ -175,7 +175,7 @@ void Client::onUpgradeConnection(const boost::system::error_code& ec, std::share
 
 std::shared_ptr<Session> Client::createSession(std::shared_ptr<WebsocketStream> wsStream,
                                                const std::string& endpointAddress,
-                                               const boost::asio::ip::port_type& endpointPortNumber)
+                                               const uint16_t& endpointPortNumber)
 {
     websocketStream.reset();
     return std::make_shared<Session>(ioContextPtr, wsStream, nullptr, boost::beast::role_type::client, logCallback, endpointAddress, endpointPortNumber);

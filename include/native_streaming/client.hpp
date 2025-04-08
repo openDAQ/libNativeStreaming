@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 openDAQ d.o.o.
+ * Copyright 2022-2025 openDAQ d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ private:
     /// @return pointer to created Session object
     std::shared_ptr<Session> createSession(std::shared_ptr<WebsocketStream> wsStream,
                                            const std::string& endpointAddress,
-                                           const boost::asio::ip::port_type& endpointPortNumber);
+                                           const uint16_t& endpointPortNumber);
 
     /// async operations handler
     std::shared_ptr<boost::asio::io_context> ioContextPtr;
