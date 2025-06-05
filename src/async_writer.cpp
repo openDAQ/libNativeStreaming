@@ -65,6 +65,20 @@ void AsyncWriter::queueBatchWrite(BatchedWriteTasks&& tasks, OptionalWriteDeadli
     }
 }
 
+#if !defined(NDEBUG) && defined(_MSC_VER) && UINTPTR_MAX == 0xFFFFFFFF
+
+struct __declspec(align(16)) const_buffer_small_vector_type : boost::container::small_vector<boost::asio::const_buffer, 16>
+{
+};
+
+using const_buffer_small_vector = const_buffer_small_vector_type;
+
+#else
+
+using const_buffer_small_vector = boost::container::small_vector<boost::asio::const_buffer, 16>;
+
+#endif
+
 void AsyncWriter::doWrite(const BatchedWriteTasksWithDeadline& tasksWithDeadline)
 {
     if (timeoutReached)
@@ -72,7 +86,7 @@ void AsyncWriter::doWrite(const BatchedWriteTasksWithDeadline& tasksWithDeadline
 
     const auto& tasks = tasksWithDeadline.first;
 
-    boost::container::small_vector<boost::asio::const_buffer, 16> buffers;
+    const_buffer_small_vector buffers;
 
     for (const auto& task : tasks)
     {
