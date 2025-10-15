@@ -136,6 +136,8 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
 
     auto wsStream = std::make_shared<WebsocketStream>(std::move(socket));
     wsStream->write_buffer_bytes(65536);
+    // 256 MB - one byte bigger than max payload size within native transport protocol used above websocket connection
+    wsStream->read_message_max(0x10000000);
 
     boost::beast::http::async_read(wsStream->next_layer(),
                                    acceptBuffer,
@@ -235,6 +237,12 @@ void Server::onUpgradeConnection(const boost::system::error_code& ec,
     }
 
     NS_LOG_I("Client {} - websocket connection accepted", endpointAddress);
+
+    NS_LOG_D("Websocket connection: auto-fragment {}, max read masg {}, write buffer size {}",
+             wsStream->auto_fragment(),
+             wsStream->read_message_max(),
+             wsStream->write_buffer_bytes());
+
     onNewSessionCallback(createSession(wsStream, userContext, endpointAddress, endpointPortNumber));
 }
 

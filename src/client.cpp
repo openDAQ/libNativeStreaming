@@ -89,6 +89,9 @@ void Client::onResolve(const boost::system::error_code& ec, boost::asio::ip::tcp
 
     websocketStream = std::make_shared<WebsocketStream>(*ioContextPtr);
     websocketStream->write_buffer_bytes(65536);
+    // 256 MB - one byte bigger than max payload size within native transport protocol used above websocket connection
+    websocketStream->read_message_max(0x10000000);
+
     boost::beast::get_lowest_layer(*websocketStream).async_connect(
         results,
         [this, weak_self = weak_from_this(), wsStream = websocketStream](
@@ -169,6 +172,11 @@ void Client::onUpgradeConnection(const boost::system::error_code& ec, std::share
         NS_LOG_E("Websocket connection aborted - cannot get connection endpoint: {}", e.what());
         return;
     }
+
+    NS_LOG_D("Websocket connection: auto-fragment {}, max read masg {}, write buffer size {}",
+             wsStream->auto_fragment(),
+             wsStream->read_message_max(),
+             wsStream->write_buffer_bytes());
 
     onNewSessionCallback(createSession(wsStream, endpointAddress, endpointPortNumber));
 }
