@@ -17,7 +17,7 @@ AsyncWriter::AsyncWriter(boost::asio::io_context& ioContextRef, std::shared_ptr<
 
 void AsyncWriter::scheduleWrite(BatchedWriteTasks&& tasks, OptionalWriteDeadline&& deadlineTime)
 {
-    ioContextRef.post(strand.wrap(
+    post(strand.wrap(
         [this, tasks = std::move(tasks), deadlineTime = std::move(deadlineTime), shared_self = shared_from_this()]() mutable
         {
             queueBatchWrite(std::move(tasks), std::move(deadlineTime));

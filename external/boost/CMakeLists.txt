@@ -5,10 +5,10 @@ add_library(daq::native_streaming::boost_websocket ALIAS boost_websocket)
 target_compile_definitions(boost_websocket INTERFACE BOOST_ALL_NO_LIB)
 
 # using only asio and beast
-# handle Boost depencies here only if not already handled by parent project
+# handle Boost dependencies here only if not already handled by parent project
 if (NOT TARGET Boost::beast)
-    set(Boost_MINVERSION "1.71.0")
-    set(Boost_REQUIREDVERSION "1.82.0")
+    set(Boost_MINVERSION "1.90.0")
+    set(Boost_REQUIREDVERSION "1.90.0")
 
     set(Boost_USE_MULTITHREADED ON)
     set(Boost_USE_STATIC_LIBS ON)
@@ -26,8 +26,8 @@ if (NOT TARGET Boost::beast)
     else (Boost_FOUND)
         message(STATUS "Fetching Boost ${Boost_REQUIREDVERSION}...")
         FetchContent_Declare(Boost
-                             URL      https://github.com/boostorg/boost/releases/download/boost-${Boost_REQUIREDVERSION}/boost-${Boost_REQUIREDVERSION}.tar.xz
-                             URL_HASH SHA256=fd60da30be908eff945735ac7d4d9addc7f7725b1ff6fcdcaede5262d511d21e
+                             URL      https://github.com/boostorg/boost/releases/download/boost-${Boost_REQUIREDVERSION}/boost-${Boost_REQUIREDVERSION}-cmake.tar.xz
+                             URL_HASH SHA256=aca59f889f0f32028ad88ba6764582b63c916ce5f77b31289ad19421a96c555f
                              ${FC_PARAMS}
         )
 

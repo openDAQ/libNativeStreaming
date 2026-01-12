@@ -41,7 +41,7 @@ void Client::connect(const std::chrono::milliseconds& timeout)
     NS_LOG_I("connecting to server: host {}, port {}, path {}", host, port, path);
 
     connectionTimeoutTimer.cancel();
-    connectionTimeoutTimer.expires_from_now(timeout);
+    connectionTimeoutTimer.expires_after(timeout);
     connectionTimeoutTimer.async_wait(
         [this, weak_self = weak_from_this()](const boost::system::error_code& ec)
         {

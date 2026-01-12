@@ -31,7 +31,7 @@ void AsyncReader::scheduleRead(const ReadTask& entryTask)
     assert(entryTask.getHandler() != nullptr);
     assert(entryTask.getSize() != 0);
     pendingTask = entryTask;
-    ioContextRef.post(strand.wrap(
+    post(strand.wrap(
         [this, shared_self = shared_from_this()]()
         {
             doRead(pendingTask.getSize());
@@ -93,7 +93,11 @@ void AsyncReader::doRead(std::size_t bytesToRead)
 
 const void* AsyncReader::data() const
 {
-    return boost::asio::buffer_cast<const void*>(buffer.data());
+    auto bufs = buffer.data();
+    auto it = boost::asio::buffer_sequence_begin(bufs);
+    if (it == boost::asio::buffer_sequence_end(bufs))
+        return nullptr;
+    return it->data();
 }
 
 void AsyncReader::consume(size_t size)
