@@ -25,6 +25,7 @@ if (NOT TARGET Boost::beast)
         )
     else (Boost_FOUND)
         message(STATUS "Fetching Boost ${Boost_REQUIREDVERSION}...")
+        get_custom_fetch_content_params(Boost FC_PARAMS)
         FetchContent_Declare(Boost
                              URL      https://github.com/boostorg/boost/releases/download/boost-${Boost_REQUIREDVERSION}/boost-${Boost_REQUIREDVERSION}.tar.xz
                              URL_HASH SHA256=fd60da30be908eff945735ac7d4d9addc7f7725b1ff6fcdcaede5262d511d21e
