@@ -7,7 +7,7 @@ target_compile_definitions(boost_websocket INTERFACE BOOST_ALL_NO_LIB)
 # using only asio and beast
 # handle Boost dependencies here only if not already handled by parent project
 if (NOT TARGET Boost::beast)
-    set(Boost_MINVERSION "1.90.0")
+    set(Boost_MINVERSION "1.71.0")
     set(Boost_REQUIREDVERSION "1.90.0")
 
     set(Boost_USE_MULTITHREADED ON)

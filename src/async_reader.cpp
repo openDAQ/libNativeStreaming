@@ -31,7 +31,12 @@ void AsyncReader::scheduleRead(const ReadTask& entryTask)
     assert(entryTask.getHandler() != nullptr);
     assert(entryTask.getSize() != 0);
     pendingTask = entryTask;
+
+#if BOOST_VERSION >= 109000
     post(strand.wrap(
+#else
+    ioContextRef.post(strand.wrap(
+#endif
         [this, shared_self = shared_from_this()]()
         {
             doRead(pendingTask.getSize());
