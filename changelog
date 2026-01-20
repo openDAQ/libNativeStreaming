@@ -51,3 +51,6 @@
 
 ## v1.0.15
  - Fix issue with retrieving connection endpoint name on server app resuming in debug mode
+
+## v1.0.20
+ - Bump boost version to 1.90.0

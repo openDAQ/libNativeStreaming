@@ -110,7 +110,7 @@ void Session::scheduleWrite(BatchedWriteTasks&& tasks, OptionalWriteDeadline&& d
 
 void Session::restartHeartbeatTimer()
 {
-    heartbeatTimer->expires_from_now(heartbeatPeriod);
+    heartbeatTimer->expires_after(heartbeatPeriod);
     heartbeatTimer->async_wait(
         [this, weak_self = weak_from_this()](const boost::system::error_code& ec)
         {
