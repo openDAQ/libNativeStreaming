@@ -38,6 +38,15 @@ endif()
 
 add_library(${PROJECT_NAME} STATIC ${SRC_Include} ${SRC_Cpp})
 add_library(daq::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+# Guarded: the helper only exists when building inside the openDAQ super-build.
+if (COMMAND opendaq_target_pch)
+    opendaq_target_pch(${PROJECT_NAME} <boost/asio.hpp>)
+endif()
+
+if (COMMAND opendaq_target_unity_libs)
+    opendaq_target_unity_libs(${PROJECT_NAME} BATCH_SIZE 4)
+endif()
+
 
 target_link_libraries(${PROJECT_NAME} PUBLIC spdlog
                                              fmt

@@ -28,6 +28,11 @@ target_include_directories(${TEST_APP} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/incl
 
 target_compile_features(${TEST_APP} PRIVATE cxx_std_17)
 
+# Guarded: the helper only exists when building inside the openDAQ super-build.
+if (COMMAND opendaq_target_pch)
+    opendaq_target_pch(${TEST_APP} <boost/asio.hpp> <gtest/gtest.h>)
+endif()
+
 add_test(NAME ${TEST_APP}
     COMMAND $<TARGET_FILE_NAME:${TEST_APP}>
     WORKING_DIRECTORY bin
