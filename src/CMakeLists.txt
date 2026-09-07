@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 
 set(SRC_Include common.hpp
                 logging.hpp
+                ws_stream.hpp
                 async_reader.hpp
                 async_writer.hpp
                 session.hpp
@@ -15,6 +16,8 @@ set(SRC_Include common.hpp
 prepend_include(${PROJECT_NAME} SRC_Include)
 
 set(SRC_Cpp logging.cpp
+            ws_stream_impl.hpp
+            ws_stream_plain.cpp
             async_reader.cpp
             async_writer.cpp
             session.cpp

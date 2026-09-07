@@ -186,7 +186,13 @@ std::shared_ptr<Session> Client::createSession(std::shared_ptr<WebsocketStream> 
                                                const uint16_t& endpointPortNumber)
 {
     websocketStream.reset();
-    return std::make_shared<Session>(ioContextPtr, wsStream, nullptr, boost::beast::role_type::client, logCallback, endpointAddress, endpointPortNumber);
+    return std::make_shared<Session>(ioContextPtr,
+                                     makePlainWsStream(wsStream),
+                                     nullptr,
+                                     boost::beast::role_type::client,
+                                     logCallback,
+                                     endpointAddress,
+                                     endpointPortNumber);
 }
 
 END_NAMESPACE_NATIVE_STREAMING

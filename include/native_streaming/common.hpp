@@ -40,5 +40,6 @@ using OnRWCallback = std::function<void(const boost::system::error_code&, std::s
 using OnCompleteCallback = std::function<void(const boost::system::error_code&)>;
 using OnConnectionAliveCallback = std::function<void()>;
 using OnWriteTaskTimedOutCallback = std::function<void()>;
+using OnControlCallback = std::function<void(boost::beast::websocket::frame_type, boost::beast::string_view)>;
 
 END_NAMESPACE_NATIVE_STREAMING

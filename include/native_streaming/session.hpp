@@ -17,6 +17,7 @@
 #pragma once
 
 #include <native_streaming/common.hpp>
+#include <native_streaming/ws_stream.hpp>
 #include <native_streaming/logging.hpp>
 #include <native_streaming/async_reader.hpp>
 #include <native_streaming/async_writer.hpp>
@@ -33,7 +34,7 @@ class Session : public std::enable_shared_from_this<Session>
 {
 public:
     explicit Session(std::shared_ptr<boost::asio::io_context> ioContextPtr,
-                     std::shared_ptr<WebsocketStream> wsStream,
+                     std::shared_ptr<IWsStream> wsStream,
                      std::shared_ptr<void> userContext,
                      boost::beast::role_type role,
                      LogCallback logCallback,
@@ -86,9 +87,6 @@ public:
     void setWriteTimedOutHandler(OnSessionErrorCallback writeTaskTimeoutHandler);
 
 private:
-    /// @brief applies additional settings to web-socket stream
-    void setOptions();
-
     /// @brief schedules an async websocket pong each time heartbeat timer expired
     void schedulePong();
 
@@ -115,7 +113,7 @@ private:
     std::shared_ptr<AsyncWriter> writer;
 
     /// @brief web-socket stream object which provides as a R/W interface for connection
-    std::shared_ptr<WebsocketStream> wsStream;
+    std::shared_ptr<IWsStream> wsStream;
 
     /// @brief user context, usualy a pointer to the authenticated user object
     std::shared_ptr<void> userContext;

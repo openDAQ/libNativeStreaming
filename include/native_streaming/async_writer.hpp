@@ -17,6 +17,7 @@
 #pragma once
 
 #include <native_streaming/common.hpp>
+#include <native_streaming/ws_stream.hpp>
 #include <native_streaming/logging.hpp>
 #include <boost/asio/io_context_strand.hpp>
 #include <queue>
@@ -64,7 +65,7 @@ using OptionalWriteDeadline = std::optional<std::chrono::steady_clock::time_poin
 class AsyncWriter : public std::enable_shared_from_this<AsyncWriter>
 {
 public:
-    explicit AsyncWriter(boost::asio::io_context& ioContextRef, std::shared_ptr<WebsocketStream> wsStream, LogCallback logCallback);
+    explicit AsyncWriter(boost::asio::io_context& ioContextRef, std::shared_ptr<IWsStream> wsStream, LogCallback logCallback);
 
     AsyncWriter(const AsyncWriter&) = delete;
     AsyncWriter& operator=(const AsyncWriter&) = delete;
@@ -110,7 +111,7 @@ private:
     OptionalDeadlineTimer setupDeadlineTimer(const std::chrono::steady_clock::time_point& deadline);
 
     /// @brief web-socket stream object which provides as a write interface for connection
-    std::shared_ptr<WebsocketStream> wsStream;
+    std::shared_ptr<IWsStream> wsStream;
 
     /// @brief Redirects log calls
     LogCallback logCallback;
