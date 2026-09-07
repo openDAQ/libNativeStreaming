@@ -139,28 +139,34 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
     // 256 MB - one byte bigger than max payload size within native transport protocol used above websocket connection
     wsStream->read_message_max(0x10000000);
 
-    boost::beast::http::async_read(wsStream->next_layer(),
-                                   acceptBuffer,
-                                   acceptRequest,
-                                   [this, weak_self = weak_from_this(), &tcpAcceptor, wsStream](const boost::system::error_code& ec, size_t /*size*/)
+    // the buffer and the request object belong to this connection only and are kept alive by the
+    // completion handlers of the accept sequence
+    auto acceptOp = std::make_shared<AcceptOp>(wsStream);
+
+    boost::beast::http::async_read(acceptOp->wsStream->next_layer(),
+                                   acceptOp->buffer,
+                                   acceptOp->request,
+                                   [this, weak_self = weak_from_this(), &tcpAcceptor, acceptOp](const boost::system::error_code& ec, size_t /*size*/)
                                    {
                                        if (auto sharedSelf = weak_self.lock())
                                        {
-                                           onReadAcceptRequest(ec, wsStream, acceptRequest);
+                                           onReadAcceptRequest(ec, acceptOp);
                                            startTcpAccept(tcpAcceptor);
                                        }
                                    });
 }
 
 void Server::onReadAcceptRequest(const boost::system::error_code& ec,
-                                 const std::shared_ptr<WebsocketStream>& wsStream,
-                                 boost::beast::http::request<boost::beast::http::string_body>& request)
+                                 const std::shared_ptr<AcceptOp>& acceptOp)
 {
     if (ec)
     {
         NS_LOG_E("Failed to read connect request headers {}", ec.message());
         return;
     }
+
+    const auto& wsStream = acceptOp->wsStream;
+    auto& request = acceptOp->request;
 
     auto authentication = Authentication();
 
@@ -192,10 +198,10 @@ void Server::onReadAcceptRequest(const boost::system::error_code& ec,
     // Accept the upgrade request
     boost_compatibility_utils::async_accept(*wsStream,
                                             request,
-                                            [this, weak_self = weak_from_this(), wsStream, userContext](const boost::system::error_code& ecc)
+                                            [this, weak_self = weak_from_this(), acceptOp, userContext](const boost::system::error_code& ecc)
                                             {
                                                 if (auto shared_self = weak_self.lock())
-                                                    onUpgradeConnection(ecc, wsStream, userContext);
+                                                    onUpgradeConnection(ecc, acceptOp->wsStream, userContext);
                                             });
 }
 
@@ -216,7 +222,7 @@ void Server::onUpgradeConnection(const boost::system::error_code& ec,
     // To handle this, first verify the socket state and then safely attempt to retrieve the endpoint name.
     std::string endpointAddress;
     uint16_t endpointPortNumber;
-    if (!(wsStream->is_open() && wsStream->next_layer().socket().is_open()))
+    if (!(wsStream->is_open() && boost::beast::get_lowest_layer(*wsStream).socket().is_open()))
     {
         NS_LOG_W("Websocket connection aborted: the socket is already closed");
         return;
@@ -225,7 +231,7 @@ void Server::onUpgradeConnection(const boost::system::error_code& ec,
     {
         try
         {
-            auto remoteEp = wsStream->next_layer().socket().remote_endpoint();
+            auto remoteEp = boost::beast::get_lowest_layer(*wsStream).socket().remote_endpoint();
             endpointAddress = remoteEp.address().to_string();
             endpointPortNumber = remoteEp.port();
         }

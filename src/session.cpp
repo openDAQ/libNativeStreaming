@@ -31,7 +31,7 @@ Session::~Session()
 {
     heartbeatTimer->cancel();
     // cancel all async operations on socket
-    wsStream->next_layer().cancel();
+    boost::beast::get_lowest_layer(*wsStream).cancel();
 }
 
 void Session::setOptions()

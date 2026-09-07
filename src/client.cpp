@@ -66,7 +66,7 @@ void Client::onConnectionTimeout(const boost::system::error_code& ec)
 
     resolver.cancel();
     if (websocketStream)
-        websocketStream->next_layer().cancel();
+        boost::beast::get_lowest_layer(*websocketStream).cancel();
     websocketStream.reset();
 }
 
@@ -163,7 +163,7 @@ void Client::onUpgradeConnection(const boost::system::error_code& ec, std::share
     uint16_t endpointPortNumber;
     try
     {
-        auto remoteEp = wsStream->next_layer().socket().remote_endpoint();
+        auto remoteEp = boost::beast::get_lowest_layer(*wsStream).socket().remote_endpoint();
         endpointAddress = remoteEp.address().to_string();
         endpointPortNumber = remoteEp.port();
     }

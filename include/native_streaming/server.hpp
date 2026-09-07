@@ -47,6 +47,28 @@ public:
     void stop();
 
 protected:
+    /// @brief per-connection state of the accept step: the web-socket stream being set up along with
+    /// the buffer and the request object used to read the connect request headers into.
+    /// One object is created for each accepted Tcp connection and is kept alive by the completion
+    /// handlers of the accept sequence until the web-socket handshake is done, so that concurrently
+    /// accepted connections never share it.
+    struct AcceptOp
+    {
+        explicit AcceptOp(std::shared_ptr<WebsocketStream> wsStream)
+            : wsStream(std::move(wsStream))
+        {
+        }
+
+        /// @brief web-socket stream object which provides as a R/W interface for connection
+        std::shared_ptr<WebsocketStream> wsStream;
+
+        /// @brief buffer for reading request headers during accept step
+        boost::asio::streambuf buffer;
+
+        /// @brief object for holding request parameters during accept step
+        boost::beast::http::request<boost::beast::http::string_body> request;
+    };
+
     /// @brief callback called when new Tcp connection acception finished by server
     /// @param tcpAcceptor Tcp acceptor which accepts connection
     /// @param ec error_code object indicates connection acception failed
@@ -57,11 +79,10 @@ protected:
 
     /// @brief callback called when connect request headers have been read by the server
     /// @param ec error_code object indicates if headers were read successfuly
-    /// @param wsStream web-socket stream object which provides as a R/W interface for connection
-    /// @param request object which holds connect request parameters
+    /// @param acceptOp per-connection state of the accept step, holds the web-socket stream and the
+    /// request object the headers were read into
     virtual void onReadAcceptRequest(const boost::system::error_code& ec,
-                                     const std::shared_ptr<WebsocketStream>& wsStream,
-                                     boost::beast::http::request<boost::beast::http::string_body>& request);
+                                     const std::shared_ptr<AcceptOp>& acceptOp);
 
     /// @brief callback called when web-socket handshake finished for new connection
     /// @param ec error_code object indicates handshake failure
@@ -108,12 +129,6 @@ private:
 
     /// Tcp connection acceptor binded to IPv6
     boost::asio::ip::tcp::acceptor tcpAcceptorV6;
-
-    /// Buffer for reading request headers during accept step
-    boost::asio::streambuf acceptBuffer;
-
-    /// Object for holding request parameters during accept step
-    boost::beast::http::request<boost::beast::http::string_body> acceptRequest;
 };
 
 END_NAMESPACE_NATIVE_STREAMING
