@@ -20,6 +20,8 @@
 #include <boost/beast/core/tcp_stream.hpp>
 #include <boost/beast/websocket/stream.hpp>
 
+#include <native_streaming/tls.hpp>
+
 #define BEGIN_NAMESPACE_STREAM_UTILS namespace daq { namespace native_streaming { 
 #define END_NAMESPACE_STREAM_UTILS }}
 
@@ -35,6 +37,15 @@ namespace boost_compatibility_utils
         const std::string& host,
         const std::string& target,
         const BoostHandler& handler);
+
+#if NATIVE_STREAMING_ENABLE_TLS
+
+    void async_handshake(TlsWebsocketStream& stream,
+        const std::string& host,
+        const std::string& target,
+        const BoostHandler& handler);
+
+#endif
 
     void async_accept(WebsocketStream& websocket, const BoostHandler& handler);
     void async_accept(WebsocketStream& websocket,
