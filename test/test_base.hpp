@@ -19,6 +19,9 @@
 #include <gtest/gtest.h>
 #include <native_streaming/logging.hpp>
 
+#include <mutex>
+#include <string>
+
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
 class TestBase : public testing::Test
@@ -34,7 +37,7 @@ protected:
         execThreadServer = std::thread(
             [this]()
             {
-                this->ioContextPtrServer->run();
+                runIoContext(*this->ioContextPtrServer, "server");
                 NS_LOG_T("server io context stopped");
             });
 
@@ -42,13 +45,15 @@ protected:
         execThreadClient = std::thread(
             [this]()
             {
-                this->ioContextPtrClient->run();
+                runIoContext(*this->ioContextPtrClient, "client");
                 NS_LOG_T("Client io context stopped");
             });
     }
 
     ~TestBase()
     {
+        ReportIoContextException();
+
         NS_LOG_T("Stop server asynchronous io context");
         ioContextPtrServer->stop();
         if (execThreadServer.joinable())
@@ -66,8 +71,44 @@ protected:
         }
     }
 
+    /// runs an io context, turning an exception escaping an asynchronous operation into a test
+    /// failure. Without this the exception would leave the thread and terminate the process, which
+    /// reads as a silent abort rather than as a failing test
+    void runIoContext(boost::asio::io_context& ioContext, const char* name)
+    {
+        try
+        {
+            ioContext.run();
+        }
+        catch (const std::exception& e)
+        {
+            std::lock_guard<std::mutex> lock(ioContextExceptionSync);
+            if (ioContextException.empty())
+                ioContextException = std::string(name) + " io context: " + e.what();
+        }
+        catch (...)
+        {
+            std::lock_guard<std::mutex> lock(ioContextExceptionSync);
+            if (ioContextException.empty())
+                ioContextException = std::string(name) + " io context: unknown exception";
+        }
+    }
+
+    /// fails the test if an asynchronous operation let an exception escape. Called from the
+    /// test thread, since gtest assertions may not be used on the io context threads
+    void ReportIoContextException()
+    {
+        std::lock_guard<std::mutex> lock(ioContextExceptionSync);
+        if (!ioContextException.empty())
+            ADD_FAILURE() << "Exception escaped an asynchronous operation: " << ioContextException;
+    }
+
     /// Redirects log calls to internal library logger implementation
     const LogCallback logCallback = Logging::logCallback();
+
+    /// guards the message of the first exception which escaped an asynchronous operation
+    std::mutex ioContextExceptionSync;
+    std::string ioContextException;
 
     /// connection / disconnection timeout
     const std::chrono::seconds timeout = std::chrono::seconds(5);
