@@ -6,3 +6,8 @@ include(CMakeFindDependencyMacro)
 
 find_dependency(Threads REQUIRED)
 find_dependency(Boost REQUIRED COMPONENTS system)
+
+set(NATIVE_STREAMING_ENABLE_TLS @NATIVE_STREAMING_ENABLE_TLS@)
+if (NATIVE_STREAMING_ENABLE_TLS)
+    find_dependency(OpenSSL 1.1.1 REQUIRED)
+endif()
