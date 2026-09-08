@@ -39,13 +39,14 @@ public:
     }
 
 protected:
-    void onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
+    void onAcceptTcpConnection(const std::shared_ptr<Listener>& listener,
+                               boost::asio::ip::tcp::acceptor& tcpAcceptor,
                                const boost::system::error_code& ec,
                                boost::asio::ip::tcp::socket&& socket) override
     {
         if (!ec)
             std::this_thread::sleep_for(delayAfterTcpConnectionAccepted);
-        Server::onAcceptTcpConnection(tcpAcceptor, ec, std::move(socket));
+        Server::onAcceptTcpConnection(listener, tcpAcceptor, ec, std::move(socket));
     }
 
 private:

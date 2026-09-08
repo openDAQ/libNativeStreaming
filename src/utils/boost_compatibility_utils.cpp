@@ -39,6 +39,17 @@ namespace boost_compatibility_utils
         websocket.async_accept(request, handler);
     }
 
+#if NATIVE_STREAMING_ENABLE_TLS
+
+    void async_accept(TlsWebsocketStream& websocket,
+                      boost::beast::http::request<boost::beast::http::string_body>& request,
+                      const BoostHandler& handler)
+    {
+        websocket.async_accept(request, handler);
+    }
+
+#endif
+
     void async_write(boost::beast::tcp_stream& stream,
         boost::beast::http::request<boost::beast::http::string_body>& request, WriteCallback callback)
     {

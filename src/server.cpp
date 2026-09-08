@@ -3,7 +3,27 @@
 #include <boost/asio/ip/v6_only.hpp>
 #include <native_streaming/utils/boost_compatibility_utils.hpp>
 
+#include <type_traits>
+
+#if NATIVE_STREAMING_ENABLE_TLS
+#include <boost/asio/ssl/stream_base.hpp>
+#endif
+
 BEGIN_NAMESPACE_NATIVE_STREAMING
+
+namespace
+{
+
+/// @brief applies the buffer limits the native transport protocol needs, whatever the stream runs on
+template <typename Stream>
+void applyStreamLimits(Stream& wsStream)
+{
+    wsStream.write_buffer_bytes(65536);
+    // 256 MB - one byte bigger than max payload size within native transport protocol used above websocket connection
+    wsStream.read_message_max(0x10000000);
+}
+
+}
 
 Server::Server(OnNewSessionCallback onNewSessionCallback,
                OnAuthenticateCallback onAuthenticateCallback,
@@ -13,8 +33,6 @@ Server::Server(OnNewSessionCallback onNewSessionCallback,
     , logCallback(logCallback)
     , onNewSessionCallback(onNewSessionCallback)
     , onAuthenticateCallback(onAuthenticateCallback)
-    , tcpAcceptorV4(*ioContextPtr)
-    , tcpAcceptorV6(*ioContextPtr)
 {
 }
 
@@ -28,25 +46,81 @@ boost::system::error_code Server::start(uint16_t port)
 {
     NS_LOG_D("Starting server");
 
+    auto listener = std::make_shared<Listener>(*ioContextPtr);
+    const auto ec = startListener(listener, port);
+    if (!ec)
+        listeners.push_back(std::move(listener));
+
+    return ec;
+}
+
+#if NATIVE_STREAMING_ENABLE_TLS
+
+boost::system::error_code Server::startTls(uint16_t port,
+                                           const std::string& certFile,
+                                           const std::string& keyFile,
+                                           const std::string& caFile)
+{
+    NS_LOG_D("Starting TLS server");
+
+    std::unique_ptr<boost::asio::ssl::context> sslContext;
+    try
+    {
+        sslContext = std::make_unique<boost::asio::ssl::context>(makeServerTlsContext(certFile, keyFile, caFile));
+    }
+    catch (const boost::system::system_error& e)
+    {
+        NS_LOG_E("Server failed to load the TLS secrets: {}", e.code().message());
+        return e.code();
+    }
+    catch (const std::exception& e)
+    {
+        NS_LOG_E("Server failed to configure TLS: {}", e.what());
+        return boost::asio::error::invalid_argument;
+    }
+
+    if (caFile.empty())
+    {
+        NS_LOG_I("TLS listener does not request client certificates");
+    }
+    else
+    {
+        NS_LOG_I("TLS listener requires client certificates signed by {}", caFile);
+    }
+
+    auto listener = std::make_shared<Listener>(*ioContextPtr);
+    listener->sslContext = std::move(sslContext);
+
+    const auto ec = startListener(listener, port);
+    if (!ec)
+        listeners.push_back(std::move(listener));
+
+    return ec;
+}
+
+#endif
+
+boost::system::error_code Server::startListener(const std::shared_ptr<Listener>& listener, uint16_t port)
+{
     boost::system::error_code ec;
     bool hasTcpAcceptor = false;
 
-    tcpAcceptorV4.open(boost::asio::ip::tcp::v4(), ec);
+    listener->tcpAcceptorV4.open(boost::asio::ip::tcp::v4(), ec);
     if (!ec)
     {
         try
         {
-            tcpAcceptorV4.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
-            tcpAcceptorV4.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port));
-            tcpAcceptorV4.listen();
-            startTcpAccept(tcpAcceptorV4);
+            listener->tcpAcceptorV4.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+            listener->tcpAcceptorV4.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port));
+            listener->tcpAcceptorV4.listen();
+            startTcpAccept(listener, listener->tcpAcceptorV4);
             hasTcpAcceptor = true;
         }
         catch (const boost::system::system_error& e)
         {
             NS_LOG_W("Server failed to initialize tcp V4 acceptor: {}", e.code().message());
             ec = e.code();
-            tcpAcceptorV4.close();
+            listener->tcpAcceptorV4.close();
         }
     }
     else
@@ -54,23 +128,23 @@ boost::system::error_code Server::start(uint16_t port)
         NS_LOG_W("Server failed to open tcp V4 acceptor: {}", ec.message());
     }
 
-    tcpAcceptorV6.open(boost::asio::ip::tcp::v6(), ec);
+    listener->tcpAcceptorV6.open(boost::asio::ip::tcp::v6(), ec);
     if (!ec)
     {
         try
         {
-            tcpAcceptorV6.set_option(boost::asio::ip::v6_only(true));
-            tcpAcceptorV6.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
-            tcpAcceptorV6.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v6(), port));
-            tcpAcceptorV6.listen();
-            startTcpAccept(tcpAcceptorV6);
+            listener->tcpAcceptorV6.set_option(boost::asio::ip::v6_only(true));
+            listener->tcpAcceptorV6.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+            listener->tcpAcceptorV6.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v6(), port));
+            listener->tcpAcceptorV6.listen();
+            startTcpAccept(listener, listener->tcpAcceptorV6);
             hasTcpAcceptor = true;
         }
         catch (const boost::system::system_error& e)
         {
             NS_LOG_W("Server failed to initialize tcp V6 acceptor: {}", e.code().message());
             ec = e.code();
-            tcpAcceptorV6.close();
+            listener->tcpAcceptorV6.close();
         }
     }
     else
@@ -87,16 +161,19 @@ boost::system::error_code Server::start(uint16_t port)
     return boost::system::error_code();
 }
 
-void Server::startTcpAccept(boost::asio::ip::tcp::acceptor& tcpAcceptor)
+void Server::startTcpAccept(const std::shared_ptr<Listener>& listener, boost::asio::ip::tcp::acceptor& tcpAcceptor)
 {
     if (!tcpAcceptor.is_open())
         return;
 
+    // the listener is captured by shared pointer; the acceptor referenced alongside it stays
+    // alive for as long as this operation does, even if the server stops meanwhile
     tcpAcceptor.async_accept(
-        [this, weak_self = weak_from_this(), &tcpAcceptor](const boost::system::error_code& ec, boost::asio::ip::tcp::socket&& socket)
+        [this, weak_self = weak_from_this(), listener, &tcpAcceptor](const boost::system::error_code& ec,
+                                                                     boost::asio::ip::tcp::socket&& socket)
         {
             if (auto shared_self = weak_self.lock())
-                onAcceptTcpConnection(tcpAcceptor, ec, std::move(socket));
+                onAcceptTcpConnection(listener, tcpAcceptor, ec, std::move(socket));
         });
 }
 
@@ -109,11 +186,18 @@ void Server::stopTcpAccept(boost::asio::ip::tcp::acceptor& tcpAcceptor)
 void Server::stop()
 {
     NS_LOG_D("stopping server");
-    stopTcpAccept(tcpAcceptorV4);
-    stopTcpAccept(tcpAcceptorV6);
+
+    for (const auto& listener : listeners)
+    {
+        stopTcpAccept(listener->tcpAcceptorV4);
+        stopTcpAccept(listener->tcpAcceptorV6);
+    }
+
+    listeners.clear();
 }
 
-void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
+void Server::onAcceptTcpConnection(const std::shared_ptr<Listener>& listener,
+                                   boost::asio::ip::tcp::acceptor& tcpAcceptor,
                                    const boost::system::error_code& ec,
                                    boost::asio::ip::tcp::socket&& socket)
 {
@@ -126,7 +210,7 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
         else
         {
             NS_LOG_E("accept failed {}", ec.message());
-            startTcpAccept(tcpAcceptor);
+            startTcpAccept(listener, tcpAcceptor);
         }
 
         return;
@@ -134,30 +218,70 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
 
     NS_LOG_T("server accepting new connection");
 
+#if NATIVE_STREAMING_ENABLE_TLS
+    if (listener->sslContext)
+    {
+        auto wsStream = std::make_shared<TlsWebsocketStream>(std::move(socket), *listener->sslContext);
+        applyStreamLimits(*wsStream);
+        startTlsHandshake(listener, tcpAcceptor, std::make_shared<AcceptOp<TlsWebsocketStream>>(wsStream));
+        return;
+    }
+#endif
+
     auto wsStream = std::make_shared<WebsocketStream>(std::move(socket));
-    wsStream->write_buffer_bytes(65536);
-    // 256 MB - one byte bigger than max payload size within native transport protocol used above websocket connection
-    wsStream->read_message_max(0x10000000);
+    applyStreamLimits(*wsStream);
+    startReadAcceptRequest(listener, tcpAcceptor, std::make_shared<AcceptOp<WebsocketStream>>(wsStream));
+}
 
-    // the buffer and the request object belong to this connection only and are kept alive by the
-    // completion handlers of the accept sequence
-    auto acceptOp = std::make_shared<AcceptOp>(wsStream);
+#if NATIVE_STREAMING_ENABLE_TLS
 
+template <typename Stream>
+void Server::startTlsHandshake(const std::shared_ptr<Listener>& listener,
+                               boost::asio::ip::tcp::acceptor& tcpAcceptor,
+                               std::shared_ptr<AcceptOp<Stream>> acceptOp)
+{
+    acceptOp->wsStream->next_layer().async_handshake(
+        boost::asio::ssl::stream_base::server,
+        [this, weak_self = weak_from_this(), listener, &tcpAcceptor, acceptOp](const boost::system::error_code& ec)
+        {
+            auto shared_self = weak_self.lock();
+            if (!shared_self)
+                return;
+
+            if (ec)
+            {
+                NS_LOG_W("TLS handshake with a client failed: {}", ec.message());
+                startTcpAccept(listener, tcpAcceptor);
+                return;
+            }
+
+            startReadAcceptRequest(listener, tcpAcceptor, acceptOp);
+        });
+}
+
+#endif
+
+template <typename Stream>
+void Server::startReadAcceptRequest(const std::shared_ptr<Listener>& listener,
+                                    boost::asio::ip::tcp::acceptor& tcpAcceptor,
+                                    std::shared_ptr<AcceptOp<Stream>> acceptOp)
+{
     boost::beast::http::async_read(acceptOp->wsStream->next_layer(),
                                    acceptOp->buffer,
                                    acceptOp->request,
-                                   [this, weak_self = weak_from_this(), &tcpAcceptor, acceptOp](const boost::system::error_code& ec, size_t /*size*/)
+                                   [this, weak_self = weak_from_this(), listener, &tcpAcceptor, acceptOp](
+                                       const boost::system::error_code& ec, size_t /*size*/)
                                    {
-                                       if (auto sharedSelf = weak_self.lock())
+                                       if (auto shared_self = weak_self.lock())
                                        {
                                            onReadAcceptRequest(ec, acceptOp);
-                                           startTcpAccept(tcpAcceptor);
+                                           startTcpAccept(listener, tcpAcceptor);
                                        }
                                    });
 }
 
-void Server::onReadAcceptRequest(const boost::system::error_code& ec,
-                                 const std::shared_ptr<AcceptOp>& acceptOp)
+template <typename Stream>
+void Server::onReadAcceptRequest(const boost::system::error_code& ec, const std::shared_ptr<AcceptOp<Stream>>& acceptOp)
 {
     if (ec)
     {
@@ -205,8 +329,9 @@ void Server::onReadAcceptRequest(const boost::system::error_code& ec,
                                             });
 }
 
+template <typename Stream>
 void Server::onUpgradeConnection(const boost::system::error_code& ec,
-                                 std::shared_ptr<WebsocketStream> wsStream,
+                                 std::shared_ptr<Stream> wsStream,
                                  const std::shared_ptr<void>& userContext)
 {
     if (ec)
@@ -252,13 +377,27 @@ void Server::onUpgradeConnection(const boost::system::error_code& ec,
     onNewSessionCallback(createSession(wsStream, userContext, endpointAddress, endpointPortNumber));
 }
 
-std::shared_ptr<Session> Server::createSession(std::shared_ptr<WebsocketStream> wsStream,
+template <typename Stream>
+std::shared_ptr<Session> Server::createSession(std::shared_ptr<Stream> wsStream,
                                                const std::shared_ptr<void>& userContext,
                                                const std::string& endpointAddress,
                                                const uint16_t& endpointPortNumber)
 {
+    std::shared_ptr<IWsStream> stream;
+
+    if constexpr (std::is_same_v<Stream, WebsocketStream>)
+    {
+        stream = makePlainWsStream(wsStream);
+    }
+#if NATIVE_STREAMING_ENABLE_TLS
+    else
+    {
+        stream = makeTlsWsStream(wsStream);
+    }
+#endif
+
     return std::make_shared<Session>(ioContextPtr,
-                                     makePlainWsStream(wsStream),
+                                     stream,
                                      userContext,
                                      boost::beast::role_type::server,
                                      logCallback,
