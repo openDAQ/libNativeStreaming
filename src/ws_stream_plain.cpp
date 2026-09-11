@@ -14,3 +14,13 @@
  * limitations under the License.
  */
 
+#include "ws_stream_impl.hpp"
+
+BEGIN_NAMESPACE_NATIVE_STREAMING
+
+std::shared_ptr<IWsStream> makePlainWsStream(std::shared_ptr<WebsocketStream> wsStream)
+{
+    return std::make_shared<WsStreamImpl<WebsocketStream>>(std::move(wsStream));
+}
+
+END_NAMESPACE_NATIVE_STREAMING

@@ -10,12 +10,20 @@ endif()
 get_filename_component(ROOT_DIR ${CMAKE_SOURCE_DIR} REALPATH)
 
 option(NATIVE_STREAMING_ENABLE_TESTS "Enable unit-tests" OFF)
+option(NATIVE_STREAMING_ENABLE_TLS "Enable the TLS encrypted channel" ON)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 find_package(Threads)
+
+if (NATIVE_STREAMING_ENABLE_TLS)
+    find_package(OpenSSL 1.1.1 REQUIRED)
+    message(STATUS "TLS channel enabled, using OpenSSL ${OPENSSL_VERSION}")
+else()
+    message(STATUS "TLS channel disabled (no OpenSSL dependency)")
+endif()
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -56,11 +64,18 @@ install(
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 )
 
-# install the public headers
-install(
-    DIRECTORY include/${PROJECT_NAME}
-    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-)
+if (NATIVE_STREAMING_ENABLE_TLS)
+    install(
+        DIRECTORY include/${PROJECT_NAME}
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    )
+else()
+    install(
+        DIRECTORY include/${PROJECT_NAME}
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+        PATTERN "tls.hpp" EXCLUDE
+    )
+endif()
 
 # install a targets file for the generated export set
 install(

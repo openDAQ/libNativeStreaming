@@ -9,9 +9,9 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.name }}
       cancel-in-progress: true
-    timeout-minutes: 10
+    timeout-minutes: 30
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - name: Ubuntu
@@ -19,21 +19,56 @@ jobs:
             cmake_generator: "Unix Makefiles"
             cmake_build_type: Debug
             cmake_defines: -DNATIVE_STREAMING_ENABLE_TESTS=ON
+            tls: true
+          - name: Ubuntu without TLS
+            runner: ubuntu-latest
+            cmake_generator: "Unix Makefiles"
+            cmake_build_type: Debug
+            cmake_defines: -DNATIVE_STREAMING_ENABLE_TESTS=ON
+            tls: false
           - name: Windows
-            runner: windows-latest
+            runner: windows-2022
             cmake_generator: "Visual Studio 17 2022"
             cmake_build_type: Debug
             cmake_defines: -DNATIVE_STREAMING_ENABLE_TESTS=ON
+            tls: true
+          - name: Windows without TLS
+            runner: windows-2022
+            cmake_generator: "Visual Studio 17 2022"
+            cmake_build_type: Debug
+            cmake_defines: -DNATIVE_STREAMING_ENABLE_TESTS=ON
+            tls: false
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # OpenSSL is the only dependency which is not fetched, and the TLS channel needs it. Installed
+      # the way the other openDAQ repositories do it: from the distribution on Linux, from vcpkg on
+      # Windows, whose build is dynamic - hence its bin directory on PATH, so that the tests find the
+      # DLLs at run time
+      - name: Install OpenSSL
+        if: runner.os == 'Linux' && matrix.tls
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+
+      # The runner image ships libssl-dev, whose headers are on the default include path: removed, so
+      # that the build without TLS fails if OpenSSL leaks into it
+      - name: Remove OpenSSL
+        if: runner.os == 'Linux' && !matrix.tls
+        run: sudo apt-get remove -y libssl-dev
+
+      - name: Install OpenSSL
+        if: runner.os == 'Windows' && matrix.tls
+        run: |
+          vcpkg install openssl:x64-windows
+          Add-Content -Path $env:GITHUB_ENV -Value "OPENSSL_ROOT_DIR=C:/vcpkg/installed/x64-windows" -Encoding utf8
+          Add-Content -Path $env:GITHUB_PATH -Value "C:\vcpkg\installed\x64-windows\bin" -Encoding utf8
+
       - name: Configure
         run: |
           mkdir build
           cd build
-          cmake -G "${{ matrix.cmake_generator }}" ${{ matrix.cmake_defines }} -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} ..
+          cmake -G "${{ matrix.cmake_generator }}" ${{ matrix.cmake_defines }} -DNATIVE_STREAMING_ENABLE_TLS=${{ matrix.tls && 'ON' || 'OFF' }} -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} ..
 
       - name: Build
         working-directory: build

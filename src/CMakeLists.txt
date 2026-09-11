@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 
 set(SRC_Include common.hpp
                 logging.hpp
+                ws_stream.hpp
                 async_reader.hpp
                 async_writer.hpp
                 session.hpp
@@ -14,7 +15,13 @@ set(SRC_Include common.hpp
 
 prepend_include(${PROJECT_NAME} SRC_Include)
 
+set(SRC_Include_Tls tls.hpp)
+
+set(SRC_Cpp_Tls ws_stream_tls.cpp)
+
 set(SRC_Cpp logging.cpp
+            ws_stream_impl.hpp
+            ws_stream_plain.cpp
             async_reader.cpp
             async_writer.cpp
             session.cpp
@@ -36,6 +43,12 @@ if(MSVC)
     endif()
 endif()
 
+if (NATIVE_STREAMING_ENABLE_TLS)
+    prepend_include(${PROJECT_NAME} SRC_Include_Tls)
+    list(APPEND SRC_Include ${SRC_Include_Tls})
+    list(APPEND SRC_Cpp ${SRC_Cpp_Tls})
+endif()
+
 add_library(${PROJECT_NAME} STATIC ${SRC_Include} ${SRC_Cpp})
 add_library(daq::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
@@ -43,6 +56,13 @@ target_link_libraries(${PROJECT_NAME} PUBLIC spdlog
                                              fmt
                                              daq::native_streaming::boost_websocket
 )
+
+if (NATIVE_STREAMING_ENABLE_TLS)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC NATIVE_STREAMING_ENABLE_TLS)
+    target_link_libraries(${PROJECT_NAME} PUBLIC OpenSSL::SSL
+                                                 OpenSSL::Crypto
+    )
+endif()
 
 target_include_directories(${PROJECT_NAME} PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>

@@ -2,7 +2,28 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <native_streaming/utils/boost_compatibility_utils.hpp>
 
+#include <type_traits>
+
+#if NATIVE_STREAMING_ENABLE_TLS
+#include <boost/asio/ssl/error.hpp>
+#include <boost/asio/ssl/stream_base.hpp>
+#endif
+
 BEGIN_NAMESPACE_NATIVE_STREAMING
+
+namespace
+{
+
+/// @brief applies the buffer limits the native transport protocol needs, whatever the stream runs on
+template <typename Stream>
+void applyStreamLimits(Stream& wsStream)
+{
+    wsStream.write_buffer_bytes(65536);
+    // 256 MB - one byte bigger than max payload size within native transport protocol used above websocket connection
+    wsStream.read_message_max(0x10000000);
+}
+
+}
 
 Client::Client(const std::string& host,
                const std::string& port,
@@ -29,6 +50,52 @@ Client::Client(const std::string& host,
     , onHandshakeFailCallback(onHandshakeFailCallback)
 {
 }
+
+#if NATIVE_STREAMING_ENABLE_TLS
+
+Client::Client(const std::string& host,
+               const std::string& port,
+               const std::string& path,
+               const Authentication& authentication,
+               OnNewSessionCallback onNewSessionCallback,
+               OnCompleteCallback onResolveFailCallback,
+               OnCompleteCallback onConnectFailCallback,
+               OnCompleteCallback onHandshakeFailCallback,
+               std::shared_ptr<boost::asio::io_context> ioContextPtr,
+               LogCallback logCallback,
+               const ClientTlsConfig& tlsConfig,
+               OnCompleteCallback onTlsHandshakeFailCallback)
+    : Client(host,
+             port,
+             path,
+             authentication,
+             onNewSessionCallback,
+             onResolveFailCallback,
+             onConnectFailCallback,
+             onHandshakeFailCallback,
+             ioContextPtr,
+             logCallback)
+{
+    this->onTlsHandshakeFailCallback = onTlsHandshakeFailCallback;
+
+    // building the context reads the secrets from disk, and throws if any of them is missing or
+    // malformed. Doing it here rather than on the first connection attempt reports such a
+    // misconfiguration to the caller directly, instead of on an asynchronous operation thread
+    sslContext = std::make_unique<boost::asio::ssl::context>(
+        tlsConfig.verifyServer ? makeClientTlsContext(tlsConfig.caFile, tlsConfig.certFile, tlsConfig.keyFile)
+                               : makeClientTlsContextWithoutVerification());
+
+    if (tlsConfig.verifyServer)
+    {
+        NS_LOG_I("Client configured for a TLS connection verified against {}", tlsConfig.caFile);
+    }
+    else
+    {
+        NS_LOG_W("Client configured for a TLS connection which does not authenticate the server");
+    }
+}
+
+#endif
 
 Client::~Client()
 {
@@ -65,9 +132,16 @@ void Client::onConnectionTimeout(const boost::system::error_code& ec)
         return;
 
     resolver.cancel();
+
     if (websocketStream)
-        websocketStream->next_layer().cancel();
+        boost::beast::get_lowest_layer(*websocketStream).cancel();
     websocketStream.reset();
+
+#if NATIVE_STREAMING_ENABLE_TLS
+    if (tlsWebsocketStream)
+        boost::beast::get_lowest_layer(*tlsWebsocketStream).cancel();
+    tlsWebsocketStream.reset();
+#endif
 }
 
 void Client::onResolve(const boost::system::error_code& ec, boost::asio::ip::tcp::resolver::results_type results)
@@ -87,23 +161,38 @@ void Client::onResolve(const boost::system::error_code& ec, boost::asio::ip::tcp
         return;
     }
 
-    websocketStream = std::make_shared<WebsocketStream>(*ioContextPtr);
-    websocketStream->write_buffer_bytes(65536);
-    // 256 MB - one byte bigger than max payload size within native transport protocol used above websocket connection
-    websocketStream->read_message_max(0x10000000);
+#if NATIVE_STREAMING_ENABLE_TLS
+    if (sslContext)
+    {
+        auto wsStream = std::make_shared<TlsWebsocketStream>(*ioContextPtr, *sslContext);
+        applyStreamLimits(*wsStream);
+        tlsWebsocketStream = wsStream;
+        startConnect(wsStream, results);
+        return;
+    }
+#endif
 
-    boost::beast::get_lowest_layer(*websocketStream).async_connect(
+    websocketStream = std::make_shared<WebsocketStream>(*ioContextPtr);
+    applyStreamLimits(*websocketStream);
+    startConnect(websocketStream, results);
+}
+
+template <typename Stream>
+void Client::startConnect(std::shared_ptr<Stream> wsStream, const boost::asio::ip::tcp::resolver::results_type& results)
+{
+    boost::beast::get_lowest_layer(*wsStream).async_connect(
         results,
-        [this, weak_self = weak_from_this(), wsStream = websocketStream](
-            const boost::system::error_code& ecc,
+        [this, weak_self = weak_from_this(), wsStream](
+            const boost::system::error_code& ec,
             boost::asio::ip::tcp::resolver::results_type::endpoint_type)
         {
             if (auto shared_self = weak_self.lock())
-                onConnect(ecc, wsStream);
+                onConnect(ec, wsStream);
         });
 }
 
-void Client::onConnect(const boost::system::error_code& ec, std::shared_ptr<WebsocketStream> wsStream)
+template <typename Stream>
+void Client::onConnect(const boost::system::error_code& ec, std::shared_ptr<Stream> wsStream)
 {
     if (ec)
     {
@@ -130,17 +219,89 @@ void Client::onConnect(const boost::system::error_code& ec, std::shared_ptr<Webs
                 req.set(boost::beast::http::field::authorization, authentication.getEncodedHeader());
         }));
 
-    boost_compatibility_utils::async_handshake(*wsStream,
-                                               host,
-                                               path,
-                                               [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ec)
-                                               {
-                                                   if (auto shared_self = weak_self.lock())
-                                                       onUpgradeConnection(ec, wsStream);
-                                               });
+#if NATIVE_STREAMING_ENABLE_TLS
+    if constexpr (std::is_same_v<Stream, TlsWebsocketStream>)
+    {
+        // the encrypted transport has to be established before the web-socket handshake
+        startTlsHandshake(wsStream);
+        return;
+    }
+#endif
+
+    startWebsocketHandshake(wsStream);
 }
 
-void Client::onUpgradeConnection(const boost::system::error_code& ec, std::shared_ptr<WebsocketStream> wsStream)
+#if NATIVE_STREAMING_ENABLE_TLS
+
+template <typename Stream>
+void Client::onTlsHandshake(const boost::system::error_code& ec, std::shared_ptr<Stream> wsStream)
+{
+    if (ec)
+    {
+        connectionTimeoutTimer.cancel();
+        if (ec.value() == boost::asio::error::operation_aborted)
+        {
+            NS_LOG_T("TLS handshake operation cancelled: {}", ec.message());
+            onConnectFailCallback(ec);
+        }
+        else
+        {
+            // the server answered but is not trusted: check its certificate against the configured
+            // certificate authority, and the client certificate if the server requires one
+            NS_LOG_E("TLS handshake operation failed {}", ec.message());
+            reportHandshakeFailure(ec);
+        }
+        return;
+    }
+
+    startWebsocketHandshake(wsStream);
+}
+
+template <typename Stream>
+void Client::startTlsHandshake(std::shared_ptr<Stream> wsStream)
+{
+    wsStream->next_layer().async_handshake(
+        boost::asio::ssl::stream_base::client,
+        [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ecc)
+        {
+            if (auto shared_self = weak_self.lock())
+                onTlsHandshake(ecc, wsStream);
+        });
+}
+
+#endif
+
+template <typename Stream>
+void Client::startWebsocketHandshake(std::shared_ptr<Stream> wsStream)
+{
+    auto onHandshakeDone =
+        [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ec)
+        {
+            if (auto shared_self = weak_self.lock())
+                onUpgradeConnection(ec, wsStream);
+        };
+
+    boost_compatibility_utils::async_handshake(*wsStream, host, path, onHandshakeDone);
+}
+
+void Client::reportHandshakeFailure(const boost::system::error_code& ec)
+{
+#if NATIVE_STREAMING_ENABLE_TLS
+    // routing by the category of the error rather than by the step that raised it: under TLS 1.3 the
+    // client certificate is sent after the client considers its handshake complete, so a server
+    // rejecting that certificate surfaces during the web-socket handshake
+    if (onTlsHandshakeFailCallback && ec.category() == boost::asio::error::get_ssl_category())
+    {
+        onTlsHandshakeFailCallback(ec);
+        return;
+    }
+#endif
+
+    onHandshakeFailCallback(ec);
+}
+
+template <typename Stream>
+void Client::onUpgradeConnection(const boost::system::error_code& ec, std::shared_ptr<Stream> wsStream)
 {
     connectionTimeoutTimer.cancel();
 
@@ -154,7 +315,7 @@ void Client::onUpgradeConnection(const boost::system::error_code& ec, std::share
         else
         {
             NS_LOG_E("Handshake operation failed {}", ec.message());
-            onHandshakeFailCallback(ec);
+            reportHandshakeFailure(ec);
         }
         return;
     }
@@ -163,7 +324,7 @@ void Client::onUpgradeConnection(const boost::system::error_code& ec, std::share
     uint16_t endpointPortNumber;
     try
     {
-        auto remoteEp = wsStream->next_layer().socket().remote_endpoint();
+        auto remoteEp = boost::beast::get_lowest_layer(*wsStream).socket().remote_endpoint();
         endpointAddress = remoteEp.address().to_string();
         endpointPortNumber = remoteEp.port();
     }
@@ -181,12 +342,33 @@ void Client::onUpgradeConnection(const boost::system::error_code& ec, std::share
     onNewSessionCallback(createSession(wsStream, endpointAddress, endpointPortNumber));
 }
 
-std::shared_ptr<Session> Client::createSession(std::shared_ptr<WebsocketStream> wsStream,
+template <typename Stream>
+std::shared_ptr<Session> Client::createSession(std::shared_ptr<Stream> wsStream,
                                                const std::string& endpointAddress,
                                                const uint16_t& endpointPortNumber)
 {
-    websocketStream.reset();
-    return std::make_shared<Session>(ioContextPtr, wsStream, nullptr, boost::beast::role_type::client, logCallback, endpointAddress, endpointPortNumber);
+    std::shared_ptr<IWsStream> stream;
+
+    if constexpr (std::is_same_v<Stream, WebsocketStream>)
+    {
+        websocketStream.reset();
+        stream = makePlainWsStream(wsStream);
+    }
+#if NATIVE_STREAMING_ENABLE_TLS
+    else
+    {
+        tlsWebsocketStream.reset();
+        stream = makeTlsWsStream(wsStream);
+    }
+#endif
+
+    return std::make_shared<Session>(ioContextPtr,
+                                     stream,
+                                     nullptr,
+                                     boost::beast::role_type::client,
+                                     logCallback,
+                                     endpointAddress,
+                                     endpointPortNumber);
 }
 
 END_NAMESPACE_NATIVE_STREAMING

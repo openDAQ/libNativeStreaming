@@ -4,21 +4,12 @@
 
 using namespace daq::native_streaming;
 
-TEST_F(ConnectionTest, Connect)
-{
-    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
-    server->start(CONNECTION_PORT);
+INSTANTIATE_TEST_SUITE_P(Transport, ConnectionTestP, testing::ValuesIn(transportModes()), transportModeName);
 
-    auto client = std::make_shared<Client>(CONNECTION_HOST,
-                                           std::to_string(CONNECTION_PORT),
-                                           CONNECTION_PATH,
-                                           authentication,
-                                           onNewClientSessionCallback,
-                                           onResolveFailedCallback,
-                                           onConnectFailedCallback,
-                                           onHandshakeFailedCallback,
-                                           ioContextPtrClient,
-                                           logCallback);
+TEST_P(ConnectionTestP, Connect)
+{
+    auto server = createServer();
+    auto client = createClient();
     client->connect();
 
     ASSERT_EQ(clientConnectedFuture.wait_for(timeout), std::future_status::ready);
@@ -34,34 +25,18 @@ TEST_F(ConnectionTest, Connect)
     clientSession.reset();
 }
 
-TEST_F(ConnectionTest, ConnectTimeoutFailure)
+TEST_P(ConnectionTestP, ConnectTimeoutFailure)
 {
-    auto server =
-        std::make_shared<MockServer>(onNewServerSessionCallback,
-                                     onAuthenticateCallback,
-                                     ioContextPtrServer,
-                                     logCallback,
-                                     std::chrono::seconds(2));
-    server->start(CONNECTION_PORT);
+    auto server = createDelayedServer(std::chrono::seconds(2));
 
     std::promise<void> connectionFailedPromise;
     std::future<void> connectionFailedFuture = connectionFailedPromise.get_future();
-    OnCompleteCallback onConnectFailedCallback =
-        [&connectionFailedPromise](const boost::system::error_code& ec)
+    onConnectFailedCallback = [&connectionFailedPromise](const boost::system::error_code& ec)
     {
         connectionFailedPromise.set_value();
     };
 
-    auto client = std::make_shared<Client>(CONNECTION_HOST,
-                                           std::to_string(CONNECTION_PORT),
-                                           CONNECTION_PATH,
-                                           authentication,
-                                           onNewClientSessionCallback,
-                                           onResolveFailedCallback,
-                                           onConnectFailedCallback,
-                                           onHandshakeFailedCallback,
-                                           ioContextPtrClient,
-                                           logCallback);
+    auto client = createClient();
 
     std::chrono::milliseconds timeout(1000);
     client->connect(timeout);
@@ -73,21 +48,10 @@ TEST_F(ConnectionTest, ConnectTimeoutFailure)
     clientSession.reset();
 }
 
-TEST_F(ConnectionTest, ConnectIPv6)
+TEST_P(ConnectionTestP, ConnectIPv6)
 {
-    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
-    server->start(CONNECTION_PORT);
-
-    auto client = std::make_shared<Client>("::1",
-                                           std::to_string(CONNECTION_PORT),
-                                           CONNECTION_PATH,
-                                           authentication,
-                                           onNewClientSessionCallback,
-                                           onResolveFailedCallback,
-                                           onConnectFailedCallback,
-                                           onHandshakeFailedCallback,
-                                           ioContextPtrClient,
-                                           logCallback);
+    auto server = createServer();
+    auto client = createClient("::1");
     client->connect();
 
     ASSERT_EQ(clientConnectedFuture.wait_for(timeout), std::future_status::ready);
@@ -103,21 +67,10 @@ TEST_F(ConnectionTest, ConnectIPv6)
     clientSession.reset();
 }
 
-TEST_F(ConnectionTest, ConnectCloseServerFirst)
+TEST_P(ConnectionTestP, ConnectCloseServerFirst)
 {
-    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
-    server->start(CONNECTION_PORT);
-
-    auto client = std::make_shared<Client>(CONNECTION_HOST,
-                                           std::to_string(CONNECTION_PORT),
-                                           CONNECTION_PATH,
-                                           authentication,
-                                           onNewClientSessionCallback,
-                                           onResolveFailedCallback,
-                                           onConnectFailedCallback,
-                                           onHandshakeFailedCallback,
-                                           ioContextPtrClient,
-                                           logCallback);
+    auto server = createServer();
+    auto client = createClient();
     client->connect();
 
     ASSERT_EQ(clientConnectedFuture.wait_for(timeout), std::future_status::ready);
@@ -130,21 +83,10 @@ TEST_F(ConnectionTest, ConnectCloseServerFirst)
     ASSERT_EQ(serverDisconnectedFuture.wait_for(timeout), std::future_status::ready);
 }
 
-TEST_F(ConnectionTest, ConnectCloseClientFirst)
+TEST_P(ConnectionTestP, ConnectCloseClientFirst)
 {
-    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
-    server->start(CONNECTION_PORT);
-
-    auto client = std::make_shared<Client>(CONNECTION_HOST,
-                                           std::to_string(CONNECTION_PORT),
-                                           CONNECTION_PATH,
-                                           authentication,
-                                           onNewClientSessionCallback,
-                                           onResolveFailedCallback,
-                                           onConnectFailedCallback,
-                                           onHandshakeFailedCallback,
-                                           ioContextPtrClient,
-                                           logCallback);
+    auto server = createServer();
+    auto client = createClient();
     client->connect();
 
     ASSERT_EQ(clientConnectedFuture.wait_for(timeout), std::future_status::ready);
@@ -157,21 +99,10 @@ TEST_F(ConnectionTest, ConnectCloseClientFirst)
     ASSERT_EQ(serverDisconnectedFuture.wait_for(timeout), std::future_status::ready);
 }
 
-TEST_F(ConnectionTest, Reconnect)
+TEST_P(ConnectionTestP, Reconnect)
 {
-    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
-    server->start(CONNECTION_PORT);
-
-    auto client = std::make_shared<Client>(CONNECTION_HOST,
-                                           std::to_string(CONNECTION_PORT),
-                                           CONNECTION_PATH,
-                                           authentication,
-                                           onNewClientSessionCallback,
-                                           onResolveFailedCallback,
-                                           onConnectFailedCallback,
-                                           onHandshakeFailedCallback,
-                                           ioContextPtrClient,
-                                           logCallback);
+    auto server = createServer();
+    auto client = createClient();
     client->connect();
 
     ASSERT_EQ(clientConnectedFuture.wait_for(timeout), std::future_status::ready);
@@ -198,21 +129,10 @@ TEST_F(ConnectionTest, Reconnect)
     ASSERT_EQ(serverDisconnectedFuture.wait_for(timeout), std::future_status::ready);
 }
 
-TEST_F(ConnectionTest, ServerReadErrorOnDisconnect)
+TEST_P(ConnectionTestP, ServerReadErrorOnDisconnect)
 {
-    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
-    server->start(CONNECTION_PORT);
-
-    auto client = std::make_shared<Client>(CONNECTION_HOST,
-                                           std::to_string(CONNECTION_PORT),
-                                           CONNECTION_PATH,
-                                           authentication,
-                                           onNewClientSessionCallback,
-                                           onResolveFailedCallback,
-                                           onConnectFailedCallback,
-                                           onHandshakeFailedCallback,
-                                           ioContextPtrClient,
-                                           logCallback);
+    auto server = createServer();
+    auto client = createClient();
     client->connect();
 
     ASSERT_EQ(clientConnectedFuture.wait_for(timeout), std::future_status::ready);
@@ -235,21 +155,10 @@ TEST_F(ConnectionTest, ServerReadErrorOnDisconnect)
     ASSERT_EQ(serverDisconnectedFuture.wait_for(timeout), std::future_status::ready);
 }
 
-TEST_F(ConnectionTest, ClientReadErrorOnDisconnect)
+TEST_P(ConnectionTestP, ClientReadErrorOnDisconnect)
 {
-    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
-    server->start(CONNECTION_PORT);
-
-    auto client = std::make_shared<Client>(CONNECTION_HOST,
-                                           std::to_string(CONNECTION_PORT),
-                                           CONNECTION_PATH,
-                                           authentication,
-                                           onNewClientSessionCallback,
-                                           onResolveFailedCallback,
-                                           onConnectFailedCallback,
-                                           onHandshakeFailedCallback,
-                                           ioContextPtrClient,
-                                           logCallback);
+    auto server = createServer();
+    auto client = createClient();
     client->connect();
 
     ASSERT_EQ(clientConnectedFuture.wait_for(timeout), std::future_status::ready);
@@ -272,26 +181,15 @@ TEST_F(ConnectionTest, ClientReadErrorOnDisconnect)
     ASSERT_EQ(clientDisconnectedFuture.wait_for(timeout), std::future_status::ready);
 }
 
-TEST_F(ConnectionTest, ConnectionActivityHeartbeat)
+TEST_P(ConnectionTestP, ConnectionActivityHeartbeat)
 {
     const size_t hbPeriodMs = 200;
     const size_t testDurationMs = 2100;
     const size_t pongsCount = testDurationMs / hbPeriodMs + 1;
 
     const auto heartbeatPeriod = std::chrono::milliseconds(hbPeriodMs);
-    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
-    server->start(CONNECTION_PORT);
-
-    auto client = std::make_shared<Client>(CONNECTION_HOST,
-                                           std::to_string(CONNECTION_PORT),
-                                           CONNECTION_PATH,
-                                           authentication,
-                                           onNewClientSessionCallback,
-                                           onResolveFailedCallback,
-                                           onConnectFailedCallback,
-                                           onHandshakeFailedCallback,
-                                           ioContextPtrClient,
-                                           logCallback);
+    auto server = createServer();
+    auto client = createClient();
     client->connect();
 
     ASSERT_EQ(clientConnectedFuture.wait_for(timeout), std::future_status::ready);

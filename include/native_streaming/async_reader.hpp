@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2025 openDAQ d.o.o.
+ * Copyright 2022-2026 openDAQ d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <native_streaming/common.hpp>
+#include <native_streaming/ws_stream.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <native_streaming/logging.hpp>
 #include <boost/asio/io_context_strand.hpp>
@@ -73,7 +74,7 @@ private:
 class AsyncReader : public std::enable_shared_from_this<AsyncReader>
 {
 public:
-    explicit AsyncReader(boost::asio::io_context& ioContextRef, std::shared_ptr<WebsocketStream> wsStream, LogCallback logCallback);
+    explicit AsyncReader(boost::asio::io_context& ioContextRef, std::shared_ptr<IWsStream> wsStream, LogCallback logCallback);
 
     AsyncReader(const AsyncReader&) = delete;
     AsyncReader& operator=(const AsyncReader&) = delete;
@@ -113,7 +114,7 @@ private:
     size_t bufferSize();
 
     /// @brief web-socket stream object which provides a read interface
-    std::shared_ptr<WebsocketStream> wsStream;
+    std::shared_ptr<IWsStream> wsStream;
 
     /// @brief Redirects log calls
     LogCallback logCallback;
