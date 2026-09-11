@@ -11,7 +11,7 @@ jobs:
       cancel-in-progress: true
     timeout-minutes: 30
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - name: Ubuntu
@@ -27,13 +27,13 @@ jobs:
             cmake_defines: -DNATIVE_STREAMING_ENABLE_TESTS=ON
             tls: false
           - name: Windows
-            runner: windows-latest
+            runner: windows-2022
             cmake_generator: "Visual Studio 17 2022"
             cmake_build_type: Debug
             cmake_defines: -DNATIVE_STREAMING_ENABLE_TESTS=ON
             tls: true
           - name: Windows without TLS
-            runner: windows-latest
+            runner: windows-2022
             cmake_generator: "Visual Studio 17 2022"
             cmake_build_type: Debug
             cmake_defines: -DNATIVE_STREAMING_ENABLE_TESTS=ON
