@@ -87,6 +87,9 @@ protected:
         /// Tcp connection acceptor binded to IPv6
         boost::asio::ip::tcp::acceptor tcpAcceptorV6;
 
+        /// Tcp port the acceptors are bound to, as requested
+        uint16_t port = 0;
+
 #if NATIVE_STREAMING_ENABLE_TLS
 
         /// the SSL context the accepted streams are created with. Null for a listener
@@ -149,7 +152,8 @@ private:
     /// @brief binds the acceptors of a listener to the given port and starts accepting on them
     /// @param listener the listener to start
     /// @param port Tcp port used for incoming connections
-    /// @return default (success) error code object if at least one acceptor was set up
+    /// @return default (success) error code object if at least one acceptor was set up,
+    /// address_in_use if the server already listens on the port
     boost::system::error_code startListener(const std::shared_ptr<Listener>& listener, uint16_t port);
 
     /// @brief starts accepting incoming Tcp asynchronously with specified acceptor

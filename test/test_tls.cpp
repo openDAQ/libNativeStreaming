@@ -156,6 +156,14 @@ TEST_F(TlsConnectionTest, BothChannelsAtOnce)
     ASSERT_EQ(serverConnectedFuture.wait_for(timeout), std::future_status::ready);
 }
 
+TEST_F(TlsConnectionTest, BothChannelsOnSamePortRejected)
+{
+    auto server = std::make_shared<Server>(onNewServerSessionCallback, onAuthenticateCallback, ioContextPtrServer, logCallback);
+    ASSERT_FALSE(server->start(CONNECTION_PORT));
+    ASSERT_EQ(server->startTls(CONNECTION_PORT, test_secrets::ServerCert, test_secrets::ServerKey),
+              boost::asio::error::address_in_use);
+}
+
 TEST_F(TlsConnectionTest, DataOverTls)
 {
     auto server = createServer();

@@ -3,6 +3,7 @@
 #include <boost/asio/ip/v6_only.hpp>
 #include <native_streaming/utils/boost_compatibility_utils.hpp>
 
+#include <algorithm>
 #include <type_traits>
 
 #if NATIVE_STREAMING_ENABLE_TLS
@@ -102,6 +103,14 @@ boost::system::error_code Server::startTls(uint16_t port,
 
 boost::system::error_code Server::startListener(const std::shared_ptr<Listener>& listener, uint16_t port)
 {
+    const auto listensOnPort = [port](const std::shared_ptr<Listener>& other) { return other->port == port; };
+    if (port != 0 && std::any_of(listeners.begin(), listeners.end(), listensOnPort))
+    {
+        NS_LOG_E("Server already listens on port {}", port);
+        return boost::asio::error::address_in_use;
+    }
+    listener->port = port;
+
     boost::system::error_code ec;
     bool hasTcpAcceptor = false;
 
