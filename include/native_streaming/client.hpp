@@ -29,8 +29,9 @@ BEGIN_NAMESPACE_NATIVE_STREAMING
 #if NATIVE_STREAMING_ENABLE_TLS
 
 /// @brief describes how a client establishes a TLS-encrypted connection.
-/// Only file paths are named here, so that the OpenSSL headers stay out of this one: the SSL context
-/// itself is built inside the library, see tls.hpp.
+/// Only file paths are named here, and the SSL context is built from them inside the library, see
+/// tls.hpp: the constructor taking this configuration carries no OpenSSL type, and a missing or
+/// malformed file is reported by that constructor rather than on the first connection attempt.
 struct ClientTlsConfig
 {
     /// @brief path to a PEM file of trusted CA certificates used to verify the server.

@@ -20,7 +20,9 @@
 #include <boost/beast/core/tcp_stream.hpp>
 #include <boost/beast/websocket/stream.hpp>
 
+#if NATIVE_STREAMING_ENABLE_TLS
 #include <native_streaming/tls.hpp>
+#endif
 
 #define BEGIN_NAMESPACE_STREAM_UTILS namespace daq { namespace native_streaming { 
 #define END_NAMESPACE_STREAM_UTILS }}
