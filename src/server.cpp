@@ -4,6 +4,7 @@
 #include <native_streaming/utils/boost_compatibility_utils.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <type_traits>
 
 #if NATIVE_STREAMING_ENABLE_TLS
@@ -14,6 +15,11 @@ BEGIN_NAMESPACE_NATIVE_STREAMING
 
 namespace
 {
+
+#if NATIVE_STREAMING_ENABLE_TLS
+/// @brief how long the server waits for the client of a rejected connection to close it
+constexpr auto rejectedConnectionDrainTimeout = std::chrono::seconds(1);
+#endif
 
 /// @brief applies the buffer limits the native transport protocol needs, whatever the stream runs on
 template <typename Stream>
@@ -261,11 +267,41 @@ void Server::startTlsHandshake(const std::shared_ptr<Listener>& listener,
             {
                 NS_LOG_W("TLS handshake with a client failed: {}", ec.message());
                 startTcpAccept(listener, tcpAcceptor);
+                closeRejectedConnection(acceptOp);
                 return;
             }
 
             startReadAcceptRequest(listener, tcpAcceptor, acceptOp);
         });
+}
+
+template <typename Stream>
+void Server::closeRejectedConnection(std::shared_ptr<AcceptOp<Stream>> acceptOp)
+{
+    // the client may already have sent data the server will never read - under TLS 1.3 its web-socket
+    // request follows its handshake at once. Closing the socket with unread data makes TCP reset the
+    // connection, and on Windows a reset discards what the client has not read yet, the TLS alert
+    // telling it why it was rejected included. The alert is already sent by the time the handshake
+    // fails, so only the sending side is shut down, and the socket is closed once the client closes
+    auto& tcpStream = boost::beast::get_lowest_layer(*acceptOp->wsStream);
+    boost::system::error_code ec;
+    tcpStream.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
+    tcpStream.expires_after(rejectedConnectionDrainTimeout);
+    drainRejectedConnection(acceptOp);
+}
+
+template <typename Stream>
+void Server::drainRejectedConnection(std::shared_ptr<AcceptOp<Stream>> acceptOp)
+{
+    boost::beast::get_lowest_layer(*acceptOp->wsStream)
+        .async_read_some(acceptOp->buffer.prepare(1024),
+                         [acceptOp](const boost::system::error_code& ec, size_t /*size*/)
+                         {
+                             // on end of stream, reset or timeout the socket is closed as acceptOp,
+                             // which owns it, is released
+                             if (!ec)
+                                 drainRejectedConnection(acceptOp);
+                         });
 }
 
 #endif

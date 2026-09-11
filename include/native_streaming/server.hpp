@@ -177,6 +177,17 @@ private:
                            boost::asio::ip::tcp::acceptor& tcpAcceptor,
                            std::shared_ptr<AcceptOp<Stream>> acceptOp);
 
+    /// @brief closes a connection the server rejected without resetting it: shuts down the sending
+    /// side, then reads and discards what the client sends until it closes or a timeout expires
+    /// @param acceptOp per-connection state of the accept step, kept alive until the connection closes
+    template <typename Stream>
+    static void closeRejectedConnection(std::shared_ptr<AcceptOp<Stream>> acceptOp);
+
+    /// @brief reads and discards what the client of a rejected connection sends, until reading fails
+    /// @param acceptOp per-connection state of the accept step, kept alive until the connection closes
+    template <typename Stream>
+    static void drainRejectedConnection(std::shared_ptr<AcceptOp<Stream>> acceptOp);
+
 #endif
 
     /// @brief starts reading the connect request headers, and accepts the next connection once they
