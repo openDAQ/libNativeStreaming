@@ -11,35 +11,23 @@ concurrency:
 
 jobs:
   build-and-test:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            generator: Ninja
-            build_type: Debug
-          - os: windows-2022
-            generator: "Visual Studio 17 2022"
-            build_type: Debug
-          - os: ubuntu-latest
-            generator: Ninja
-            build_type: Release
-          - os: windows-2022
-            generator: "Visual Studio 17 2022"
-            build_type: Release
-
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout project repo
-        uses: actions/checkout@v4
-
-      - name: Configure project with CMake
-        run: cmake -B build/output -S . -G "${{ matrix.generator }}" -DNATIVE_STREAMING_ENABLE_TESTS=ON -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}"
-
-      - name: Build project with CMake
-        run: cmake --build build/output --config "${{ matrix.build_type }}"
-
-      - name: Run project tests with CMake
-        run: ctest --test-dir build/output --output-on-failure -C "${{ matrix.build_type }}"
+    uses: openDAQ/openDAQ-CI/.github/workflows/reusable.yml@v3
+    with:
+      timeout: >
+        [
+          { "timeout-minutes": 45 }
+        ]
+      include-jobs: >
+        [
+          "ubuntu-24.04-x86_64-ninja-gcc-14-debug",
+          "ubuntu-24.04-x86_64-ninja-gcc-14-release",
+          "windows-2022-x86_64-msvs-v143-debug",
+          "windows-2022-x86_64-msvs-v143-release"
+        ]
+      cmake-presets: >
+        [
+          {
+            "configure-preset": "ci",
+            "test-preset": "ci-test"
+          }
+        ]
