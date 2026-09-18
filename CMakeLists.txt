@@ -1,3 +1,4 @@
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 cmake_minimum_required(VERSION 3.24)
 
 project(native_streaming VERSION 1.0.20 LANGUAGES CXX)
@@ -38,6 +39,17 @@ set(FETCHCONTENT_EXTERNALS_DIR ${ROOT_DIR}/build/__external CACHE PATH "FetchCon
 
 include(Utils)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+# Build acceleration helpers (PCH, unity builds); already populated inside the openDAQ super-build.
+FetchContent_Declare(
+    opendaq-cmake-utils
+    GIT_REPOSITORY https://github.com/openDAQ/opendaq-cmake-utils.git
+    GIT_TAG        v1.1.0
+    GIT_PROGRESS   ON
+)
+FetchContent_MakeAvailable(opendaq-cmake-utils)
+set(OPENDAQ_ENABLE_UNITY_LIBS ON CACHE BOOL "Unity builds for libraries")
+opendaq_setup_build_acceleration_options()
 
 add_subdirectory(external)
 add_subdirectory(src)
