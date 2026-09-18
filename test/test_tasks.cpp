@@ -6,6 +6,8 @@ using namespace daq::native_streaming;
 
 using TaskTest = testing::Test;
 
+// The constructors validate with assert, which Release compiles out.
+
 TEST_F(TaskTest, WriteTaskCreate)
 {
     auto handler = []() {};
@@ -17,8 +19,10 @@ TEST_F(TaskTest, WriteTaskCreate)
     ASSERT_EQ(task.getBuffer().data(), buffer.data());
     ASSERT_EQ(task.getBuffer().size(), buffer.size());
 
+#ifndef NDEBUG
     ASSERT_DEATH_IF_SUPPORTED({ WriteTask(boost::asio::const_buffer(), handler); }, "");
     ASSERT_DEATH_IF_SUPPORTED({ WriteTask(buffer, nullptr); }, "");
+#endif
 }
 
 TEST_F(TaskTest, ReadTaskCreateDefault)
@@ -36,6 +40,8 @@ TEST_F(TaskTest, ReadTaskCreate)
     ASSERT_NE(task.getHandler(), nullptr);
     ASSERT_EQ(task.getSize(), 1);
 
+#ifndef NDEBUG
     ASSERT_DEATH_IF_SUPPORTED({ ReadTask(nullptr, 1); }, "");
     ASSERT_DEATH_IF_SUPPORTED({ ReadTask(handler, 0); }, "");
+#endif
 }
