@@ -1,44 +1,45 @@
 name: Build and Test
-on: [push]
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ${{ matrix.runner }}
-    name: ${{ matrix.name }}
-
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.name }}
-      cancel-in-progress: true
-    timeout-minutes: 10
+  build-and-test:
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
-          - name: Ubuntu
-            runner: ubuntu-latest
-            cmake_generator: "Unix Makefiles"
-            cmake_build_type: Debug
-            cmake_defines: -DNATIVE_STREAMING_ENABLE_TESTS=ON
-          - name: Windows
-            runner: windows-latest
-            cmake_generator: "Visual Studio 17 2022"
-            cmake_build_type: Debug
-            cmake_defines: -DNATIVE_STREAMING_ENABLE_TESTS=ON
+          - os: ubuntu-latest
+            generator: Ninja
+            build_type: Debug
+          - os: windows-2022
+            generator: "Visual Studio 17 2022"
+            build_type: Debug
+          - os: ubuntu-latest
+            generator: Ninja
+            build_type: Release
+          - os: windows-2022
+            generator: "Visual Studio 17 2022"
+            build_type: Release
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout project repo
+        uses: actions/checkout@v4
 
-      - name: Configure
-        run: |
-          mkdir build
-          cd build
-          cmake -G "${{ matrix.cmake_generator }}" ${{ matrix.cmake_defines }} -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} ..
+      - name: Configure project with CMake
+        run: cmake -B build/output -S . -G "${{ matrix.generator }}" -DNATIVE_STREAMING_ENABLE_TESTS=ON -DCMAKE_BUILD_TYPE="${{ matrix.build_type }}"
 
-      - name: Build
-        working-directory: build
-        run: cmake --build .
+      - name: Build project with CMake
+        run: cmake --build build/output --config "${{ matrix.build_type }}"
 
-      - name: Test
-        working-directory: build
-        run: ctest --output-on-failure -C ${{ matrix.cmake_build_type }}
+      - name: Run project tests with CMake
+        run: ctest --test-dir build/output --output-on-failure -C "${{ matrix.build_type }}"
