@@ -38,6 +38,10 @@ endif()
 
 add_library(${PROJECT_NAME} STATIC ${SRC_Include} ${SRC_Cpp})
 add_library(daq::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+opendaq_target_pch(${PROJECT_NAME} <boost/asio.hpp>)
+
+opendaq_target_unity_libs(${PROJECT_NAME} BATCH_SIZE 4)
+
 
 target_link_libraries(${PROJECT_NAME} PUBLIC spdlog
                                              fmt
