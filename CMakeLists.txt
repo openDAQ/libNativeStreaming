@@ -1,7 +1,7 @@
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 cmake_minimum_required(VERSION 3.24)
 
-project(native_streaming VERSION 1.0.20 LANGUAGES CXX)
+project(native_streaming VERSION 1.0.21 LANGUAGES CXX)
 
 if (NOT CMAKE_MESSAGE_CONTEXT)
     set(CMAKE_MESSAGE_CONTEXT ${PROJECT_NAME})
