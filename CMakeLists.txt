@@ -44,7 +44,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 FetchContent_Declare(
     opendaq-cmake-utils
     GIT_REPOSITORY https://github.com/openDAQ/opendaq-cmake-utils.git
-    GIT_TAG        feature/build-acceleration-utils
+    GIT_TAG        v1.1.0
     GIT_PROGRESS   ON
 )
 FetchContent_MakeAvailable(opendaq-cmake-utils)
