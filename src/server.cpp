@@ -2,6 +2,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/v6_only.hpp>
 #include <native_streaming/utils/boost_compatibility_utils.hpp>
+#include "ws_stream_impl.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -13,24 +14,15 @@
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
+#if NATIVE_STREAMING_ENABLE_TLS
 namespace
 {
 
-#if NATIVE_STREAMING_ENABLE_TLS
 /// @brief how long the server waits for the client of a rejected connection to close it
 constexpr auto rejectedConnectionDrainTimeout = std::chrono::seconds(1);
+
+}
 #endif
-
-/// @brief applies the buffer limits the native transport protocol needs, whatever the stream runs on
-template <typename Stream>
-void applyStreamLimits(Stream& wsStream)
-{
-    wsStream.write_buffer_bytes(65536);
-    // 256 MB - one byte bigger than max payload size within native transport protocol used above websocket connection
-    wsStream.read_message_max(0x10000000);
-}
-
-}
 
 Server::Server(OnNewSessionCallback onNewSessionCallback,
                OnAuthenticateCallback onAuthenticateCallback,

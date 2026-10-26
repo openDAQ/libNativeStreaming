@@ -96,6 +96,20 @@
             "inherits": [
                 "msvc-17"
             ]
+        },
+        {
+            "name": "ci",
+            "hidden": true,
+            "cacheVariables": {
+                "NATIVE_STREAMING_ENABLE_TESTS": "ON"
+            }
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "ci-test",
+            "hidden": true,
+            "configurePreset": "ci"
         }
     ]
 }

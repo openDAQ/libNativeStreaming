@@ -54,3 +54,4 @@
 
 ## v1.0.20
  - Bump boost version to 1.90.0
+ - Add precompiled headers and unity builds through opendaq-cmake-utils v1.1.0; CI moved to the openDAQ-CI reusable workflow

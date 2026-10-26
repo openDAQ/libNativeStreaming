@@ -21,6 +21,15 @@
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
+/// @brief applies the buffer limits the native transport protocol needs, whatever the stream runs on
+template <typename Stream>
+void applyStreamLimits(Stream& wsStream)
+{
+    wsStream.write_buffer_bytes(65536);
+    // 256 MB - one byte bigger than max payload size within native transport protocol used above websocket connection
+    wsStream.read_message_max(0x10000000);
+}
+
 /// @brief implements the transport-neutral web-socket interface over a concrete beast web-socket
 /// stream. Instantiated once per transport - the operations the library uses are spelled the same
 /// way whether the web-socket runs on a plaintext or on an encrypted stream.

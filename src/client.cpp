@@ -1,6 +1,7 @@
 #include <native_streaming/client.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <native_streaming/utils/boost_compatibility_utils.hpp>
+#include "ws_stream_impl.hpp"
 
 #include <type_traits>
 
@@ -10,20 +11,6 @@
 #endif
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
-
-namespace
-{
-
-/// @brief applies the buffer limits the native transport protocol needs, whatever the stream runs on
-template <typename Stream>
-void applyStreamLimits(Stream& wsStream)
-{
-    wsStream.write_buffer_bytes(65536);
-    // 256 MB - one byte bigger than max payload size within native transport protocol used above websocket connection
-    wsStream.read_message_max(0x10000000);
-}
-
-}
 
 Client::Client(const std::string& host,
                const std::string& port,
