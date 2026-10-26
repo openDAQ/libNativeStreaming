@@ -6,7 +6,7 @@ BEGIN_NAMESPACE_NATIVE_STREAMING
 static std::chrono::milliseconds defaultHeartbeatPeriod = std::chrono::milliseconds(1000);
 
 Session::Session(std::shared_ptr<boost::asio::io_context> ioContextPtr,
-                 std::shared_ptr<WebsocketStream> wsStream,
+                 std::shared_ptr<IWsStream> wsStream,
                  std::shared_ptr<void> userContext,
                  boost::beast::role_type role,
                  LogCallback logCallback,
@@ -24,57 +24,43 @@ Session::Session(std::shared_ptr<boost::asio::io_context> ioContextPtr,
     , endpointAddress(endpointAddress)
     , endpointPortNumber(endpointPortNumber)
 {
-    setOptions();
+    this->wsStream->configure(role);
 }
 
 Session::~Session()
 {
     heartbeatTimer->cancel();
     // cancel all async operations on socket
-    wsStream->next_layer().cancel();
-}
-
-void Session::setOptions()
-{
-    using namespace std::chrono_literals;
-
-    // websocket stream handles timeouts on its own - timeout on tcp stream should be turned off
-    boost::beast::get_lowest_layer(*wsStream).expires_never();
-    wsStream->binary(true);
-
-    // Set reduced timeout settings for the websocket
-    auto option = boost::beast::websocket::stream_base::timeout::suggested(role);
-    option.handshake_timeout = 3s;
-    wsStream->set_option(option);
+    wsStream->cancelLowestLayer();
 }
 
 void Session::close(OnCompleteCallback onClosedCallback)
 {
     NS_LOG_D("Disconnection: closing {}-side native communication session", (role == boost::beast::role_type::server) ? "server" : "client");
 
-    wsStream->async_close(boost::beast::websocket::close_code::normal,
-                          [this, onClosedCallback, weak_self = weak_from_this()](const boost::system::error_code& ec)
-                          {
-                              if (auto shared_self = weak_self.lock())
-                              {
-                                  std::string roleName =
-                                      (role == boost::beast::role_type::server) ? "server" : "client";
-                                  if (wsStream->is_open())
-                                  {
-                                      NS_LOG_E("Disconnected with closing {}-side session failure: {}", roleName, ec.message());
-                                      onClosedCallback(ec);
-                                  }
-                                  else
-                                  {
-                                      NS_LOG_D("Disconnected with {}-side session normally closed.", roleName);
-                                      onClosedCallback(boost::system::error_code());
-                                  }
-                              }
-                              else
-                              {
-                                  onClosedCallback(boost::system::error_code());
-                              }
-                          });
+    wsStream->asyncClose(boost::beast::websocket::close_code::normal,
+                         [this, onClosedCallback, weak_self = weak_from_this()](const boost::system::error_code& ec)
+                         {
+                             if (auto shared_self = weak_self.lock())
+                             {
+                                 std::string roleName =
+                                     (role == boost::beast::role_type::server) ? "server" : "client";
+                                 if (wsStream->isOpen())
+                                 {
+                                     NS_LOG_E("Disconnected with closing {}-side session failure: {}", roleName, ec.message());
+                                     onClosedCallback(ec);
+                                 }
+                                 else
+                                 {
+                                     NS_LOG_D("Disconnected with {}-side session normally closed.", roleName);
+                                     onClosedCallback(boost::system::error_code());
+                                 }
+                             }
+                             else
+                             {
+                                 onClosedCallback(boost::system::error_code());
+                             }
+                         });
 }
 
 void Session::setErrorHandlers(OnSessionErrorCallback onWriteErrorCallback,
@@ -125,21 +111,21 @@ void Session::restartHeartbeatTimer()
 
 void Session::schedulePong()
 {
-    if (!wsStream->is_open())
+    if (!wsStream->isOpen())
         return;
 
     std::string payload = std::string("ping from ") +
                           std::string((role == boost::beast::role_type::server) ? "server" : "client");
-    wsStream->async_pong(payload.c_str(),
-                         [this, weak_self = weak_from_this()](const boost::system::error_code& ec)
-                         {
-                             if (ec)
-                                 return;
-                             if (auto shared_self = weak_self.lock())
-                             {
-                                 this->restartHeartbeatTimer();
-                             }
-                         });
+    wsStream->asyncPong(payload,
+                        [this, weak_self = weak_from_this()](const boost::system::error_code& ec)
+                        {
+                            if (ec)
+                                return;
+                            if (auto shared_self = weak_self.lock())
+                            {
+                                this->restartHeartbeatTimer();
+                            }
+                        });
 }
 
 void Session::startConnectionActivityMonitoring(OnConnectionAliveCallback connectionAliveCallback, std::chrono::milliseconds heartbeatPeriod)
@@ -151,7 +137,7 @@ void Session::startConnectionActivityMonitoring(OnConnectionAliveCallback connec
     // even if the receiver is unreachable when intermediate network nodes present, such as a routers
     //writer->setConnectionAliveHandler(connectionAliveCallback);
 
-    wsStream->control_callback(
+    wsStream->setControlCallback(
         [this, weak_self = weak_from_this()](boost::beast::websocket::frame_type kind, boost::beast::string_view /*payload*/)
         {
             if (auto shared_self = weak_self.lock())
@@ -167,7 +153,7 @@ void Session::startConnectionActivityMonitoring(OnConnectionAliveCallback connec
 
 bool Session::isOpen()
 {
-    return wsStream->is_open();
+    return wsStream->isOpen();
 }
 
 std::shared_ptr<void> Session::getUserContext()

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2025 openDAQ d.o.o.
+ * Copyright 2022-2026 openDAQ d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,10 @@
 #include <boost/beast/core/tcp_stream.hpp>
 #include <boost/beast/websocket/stream.hpp>
 
+#if NATIVE_STREAMING_ENABLE_TLS
+#include <native_streaming/tls.hpp>
+#endif
+
 #define BEGIN_NAMESPACE_STREAM_UTILS namespace daq { namespace native_streaming { 
 #define END_NAMESPACE_STREAM_UTILS }}
 
@@ -36,10 +40,27 @@ namespace boost_compatibility_utils
         const std::string& target,
         const BoostHandler& handler);
 
+#if NATIVE_STREAMING_ENABLE_TLS
+
+    void async_handshake(TlsWebsocketStream& stream,
+        const std::string& host,
+        const std::string& target,
+        const BoostHandler& handler);
+
+#endif
+
     void async_accept(WebsocketStream& websocket, const BoostHandler& handler);
     void async_accept(WebsocketStream& websocket,
                       boost::beast::http::request<boost::beast::http::string_body>& request,
                       const BoostHandler& handler);
+
+#if NATIVE_STREAMING_ENABLE_TLS
+
+    void async_accept(TlsWebsocketStream& websocket,
+                      boost::beast::http::request<boost::beast::http::string_body>& request,
+                      const BoostHandler& handler);
+
+#endif
 
     void async_write(boost::beast::tcp_stream& stream,
                      boost::beast::http::request<boost::beast::http::string_body>& request,

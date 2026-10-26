@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2025 openDAQ d.o.o.
+ * Copyright 2022-2026 openDAQ d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,5 +40,6 @@ using OnRWCallback = std::function<void(const boost::system::error_code&, std::s
 using OnCompleteCallback = std::function<void(const boost::system::error_code&)>;
 using OnConnectionAliveCallback = std::function<void()>;
 using OnWriteTaskTimedOutCallback = std::function<void()>;
+using OnControlCallback = std::function<void(boost::beast::websocket::frame_type, boost::beast::string_view)>;
 
 END_NAMESPACE_NATIVE_STREAMING
