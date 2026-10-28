@@ -196,7 +196,7 @@ TEST_F(ServerAcceptTest, MalformedRequestDoesNotPoisonLaterConnections)
 }
 
 // A client connecting without sending a request must not block the upgrade of other connections
-TEST_F(ServerAcceptTest, DISABLED_SilentClientDoesNotBlockOtherConnections)
+TEST_F(ServerAcceptTest, SilentClientDoesNotBlockOtherConnections)
 {
     RawTcpConnection silent(*ioContextPtrClient, serverEndpoint());
     ASSERT_TRUE(silent.isConnected());

@@ -135,6 +135,11 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
 
     NS_LOG_T("server accepting new connection");
 
+    // Re-arm the acceptor immediately: each connection is independent and must not
+    // wait for this one's upgrade request to arrive (a silent client must not block others).
+    // Safe because the transport io_context is single-threaded; add a strand here if that changes.
+    startTcpAccept(tcpAcceptor);
+
     auto wsStream = std::make_shared<WebsocketStream>(std::move(socket));
     wsStream->write_buffer_bytes(65536);
     // 256 MB - one byte bigger than max payload size within native transport protocol used above websocket connection
@@ -148,12 +153,11 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
     boost::beast::http::async_read(wsStream->next_layer(),
                                    *buffer,
                                    *request,
-                                   [this, weak_self = weak_from_this(), &tcpAcceptor, wsStream, buffer, request](const boost::system::error_code& ec, size_t /*size*/)
+                                   [this, weak_self = weak_from_this(), wsStream, buffer, request](const boost::system::error_code& ec, size_t /*size*/)
                                    {
                                        if (auto sharedSelf = weak_self.lock())
                                        {
                                            onReadAcceptRequest(ec, wsStream, *request);
-                                           startTcpAccept(tcpAcceptor);
                                        }
                                    });
 }
