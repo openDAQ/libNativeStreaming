@@ -1,6 +1,7 @@
 #include <native_streaming/server.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/v6_only.hpp>
+#include <boost/beast/core/flat_buffer.hpp>
 #include <native_streaming/utils/boost_compatibility_utils.hpp>
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
@@ -139,14 +140,19 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
     // 256 MB - one byte bigger than max payload size within native transport protocol used above websocket connection
     wsStream->read_message_max(0x10000000);
 
+    // Per-connection accept state (not shared members): prevents stale bytes from poisoning
+    // later connections and avoids overlapping reads corrupting a shared buffer.
+    auto buffer = std::make_shared<boost::beast::flat_buffer>();
+    auto request = std::make_shared<boost::beast::http::request<boost::beast::http::string_body>>();
+
     boost::beast::http::async_read(wsStream->next_layer(),
-                                   acceptBuffer,
-                                   acceptRequest,
-                                   [this, weak_self = weak_from_this(), &tcpAcceptor, wsStream](const boost::system::error_code& ec, size_t /*size*/)
+                                   *buffer,
+                                   *request,
+                                   [this, weak_self = weak_from_this(), &tcpAcceptor, wsStream, buffer, request](const boost::system::error_code& ec, size_t /*size*/)
                                    {
                                        if (auto sharedSelf = weak_self.lock())
                                        {
-                                           onReadAcceptRequest(ec, wsStream, acceptRequest);
+                                           onReadAcceptRequest(ec, wsStream, *request);
                                            startTcpAccept(tcpAcceptor);
                                        }
                                    });

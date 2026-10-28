@@ -172,7 +172,7 @@ public:
 };
 
 // A client sending a malformed non-HTTP request must not affect the upgrade of the connections following it
-TEST_F(ServerAcceptTest, DISABLED_MalformedRequestDoesNotPoisonLaterConnections)
+TEST_F(ServerAcceptTest, MalformedRequestDoesNotPoisonLaterConnections)
 {
     {
         RawTcpConnection valid(*ioContextPtrClient, serverEndpoint());
