@@ -3,6 +3,7 @@
 #include <boost/asio/ip/v6_only.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
 #include <native_streaming/utils/boost_compatibility_utils.hpp>
+#include <chrono>
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
@@ -150,6 +151,10 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
     auto buffer = std::make_shared<boost::beast::flat_buffer>();
     auto request = std::make_shared<boost::beast::http::request<boost::beast::http::string_body>>();
 
+    // Bound the pre-upgrade read so a client that connects but never sends a request
+    // cannot park the socket (and its buffers) indefinitely.
+    boost::beast::get_lowest_layer(*wsStream).expires_after(std::chrono::seconds(5));
+
     boost::beast::http::async_read(wsStream->next_layer(),
                                    *buffer,
                                    *request,
@@ -157,6 +162,8 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
                                    {
                                        if (auto sharedSelf = weak_self.lock())
                                        {
+                                           // The websocket layer manages its own timeouts after upgrade.
+                                           boost::beast::get_lowest_layer(*wsStream).expires_never();
                                            onReadAcceptRequest(ec, wsStream, *request);
                                        }
                                    });

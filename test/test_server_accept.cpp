@@ -208,7 +208,7 @@ TEST_F(ServerAcceptTest, SilentClientDoesNotBlockOtherConnections)
 }
 
 // A client connecting without sending a request must be disconnected by the server eventually
-TEST_F(ServerAcceptTest, DISABLED_SilentClientIsDisconnected)
+TEST_F(ServerAcceptTest, SilentClientIsDisconnected)
 {
     RawTcpConnection silent(*ioContextPtrClient, serverEndpoint());
     ASSERT_TRUE(silent.isConnected());
