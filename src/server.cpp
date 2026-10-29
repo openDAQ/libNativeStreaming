@@ -1,7 +1,9 @@
 #include <native_streaming/server.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/v6_only.hpp>
+#include <boost/beast/core/flat_buffer.hpp>
 #include <native_streaming/utils/boost_compatibility_utils.hpp>
+#include <chrono>
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
@@ -134,20 +136,35 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
 
     NS_LOG_T("server accepting new connection");
 
+    // Re-arm the acceptor immediately: each connection is independent and must not
+    // wait for this one's upgrade request to arrive (a silent client must not block others).
+    // Safe because the transport io_context is single-threaded; add a strand here if that changes.
+    startTcpAccept(tcpAcceptor);
+
     auto wsStream = std::make_shared<WebsocketStream>(std::move(socket));
     wsStream->write_buffer_bytes(65536);
     // 256 MB - one byte bigger than max payload size within native transport protocol used above websocket connection
     wsStream->read_message_max(0x10000000);
 
+    // Per-connection accept state (not shared members): prevents stale bytes from poisoning
+    // later connections and avoids overlapping reads corrupting a shared buffer.
+    auto buffer = std::make_shared<boost::beast::flat_buffer>();
+    auto request = std::make_shared<boost::beast::http::request<boost::beast::http::string_body>>();
+
+    // Bound the pre-upgrade read so a client that connects but never sends a request
+    // cannot park the socket (and its buffers) indefinitely.
+    boost::beast::get_lowest_layer(*wsStream).expires_after(std::chrono::seconds(5));
+
     boost::beast::http::async_read(wsStream->next_layer(),
-                                   acceptBuffer,
-                                   acceptRequest,
-                                   [this, weak_self = weak_from_this(), &tcpAcceptor, wsStream](const boost::system::error_code& ec, size_t /*size*/)
+                                   *buffer,
+                                   *request,
+                                   [this, weak_self = weak_from_this(), wsStream, buffer, request](const boost::system::error_code& ec, size_t /*size*/)
                                    {
                                        if (auto sharedSelf = weak_self.lock())
                                        {
-                                           onReadAcceptRequest(ec, wsStream, acceptRequest);
-                                           startTcpAccept(tcpAcceptor);
+                                           // The websocket layer manages its own timeouts after upgrade.
+                                           boost::beast::get_lowest_layer(*wsStream).expires_never();
+                                           onReadAcceptRequest(ec, wsStream, *request);
                                        }
                                    });
 }
