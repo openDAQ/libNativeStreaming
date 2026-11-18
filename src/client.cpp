@@ -11,7 +11,7 @@ Client::Client(const std::string& host,
                OnNewSessionCallback onNewSessionCallback,
                OnCompleteCallback onResolveFailCallback,
                OnCompleteCallback onConnectFailCallback,
-               OnCompleteCallback onHandshakeFailCallback,
+               OnHandshakeFailCallback onHandshakeFailCallback,
                std::shared_ptr<boost::asio::io_context> ioContextPtr,
                LogCallback logCallback)
     : ioContextPtr(ioContextPtr)
@@ -130,17 +130,24 @@ void Client::onConnect(const boost::system::error_code& ec, std::shared_ptr<Webs
                 req.set(boost::beast::http::field::authorization, authentication.getEncodedHeader());
         }));
 
+    // Kept so a declined upgrade can be reported together with the server's reply (e.g. 401 Unauthorized).
+    // The server closes the connection right after its reply. This client sends nothing after the upgrade
+    // request (RFC 6455), so the close arrives after the reply as an orderly FIN and the reply is read in full.
+    auto response = std::make_shared<HandshakeResponse>();
     boost_compatibility_utils::async_handshake(*wsStream,
+                                               *response,
                                                host,
                                                path,
-                                               [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ec)
+                                               [this, weak_self = weak_from_this(), wsStream, response](const boost::system::error_code& ec)
                                                {
                                                    if (auto shared_self = weak_self.lock())
-                                                       onUpgradeConnection(ec, wsStream);
+                                                       onUpgradeConnection(ec, wsStream, response);
                                                });
 }
 
-void Client::onUpgradeConnection(const boost::system::error_code& ec, std::shared_ptr<WebsocketStream> wsStream)
+void Client::onUpgradeConnection(const boost::system::error_code& ec,
+                                 std::shared_ptr<WebsocketStream> wsStream,
+                                 const std::shared_ptr<const HandshakeResponse>& response)
 {
     connectionTimeoutTimer.cancel();
 
@@ -153,8 +160,17 @@ void Client::onUpgradeConnection(const boost::system::error_code& ec, std::share
         }
         else
         {
-            NS_LOG_E("Handshake operation failed {}", ec.message());
-            onHandshakeFailCallback(ec);
+            if (ec == boost::beast::websocket::error::upgrade_declined)
+            {
+                NS_LOG_E("Handshake operation failed {}: server replied {} {}", ec.message(), response->result_int(), std::string(response->reason()));
+                onHandshakeFailCallback(ec, response);
+            }
+            else
+            {
+                NS_LOG_E("Handshake operation failed {}", ec.message());
+                // no reply was parsed - the response object still holds its default (200 OK), so pass none
+                onHandshakeFailCallback(ec, nullptr);
+            }
         }
         return;
     }
