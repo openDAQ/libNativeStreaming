@@ -79,22 +79,25 @@ public:
         if (connectError)
             return RawConnectionResult::ConnectFailed;
 
+        // The buffer is owned by the handler too, so a read still pending after a give-up never writes to freed memory
+        auto responseData = std::make_shared<std::array<char, 4096>>();
         auto readPromise = std::make_shared<std::promise<std::pair<boost::system::error_code, size_t>>>();
         auto readFuture = readPromise->get_future();
-        socket.async_read_some(boost::asio::buffer(responseData),
-                               [readPromise](const boost::system::error_code& ec, size_t size)
+        socket.async_read_some(boost::asio::buffer(*responseData),
+                               [readPromise, responseData](const boost::system::error_code& ec, size_t size)
                                { readPromise->set_value({ec, size}); });
 
         if (readFuture.wait_for(ioTimeout) != std::future_status::ready)
         {
-            // close on the io thread to cancel the pending read, then let its handler complete before returning
+            // close on the io thread to cancel the pending read, then give its handler a bounded time to complete;
+            // never wait unbounded - a cancellation that does not complete must fail the test, not hang it
             boost::asio::post(socket.get_executor(),
                               [this]()
                               {
                                   boost::system::error_code ignored;
                                   socket.close(ignored);
                               });
-            readFuture.wait();
+            readFuture.wait_for(ioTimeout);
             return RawConnectionResult::TimedOut;
         }
 
@@ -102,7 +105,7 @@ public:
         if (readError || bytesRead == 0)
             return RawConnectionResult::DroppedByServer;
 
-        const std::string response(responseData.data(), bytesRead);
+        const std::string response(responseData->data(), bytesRead);
         firstResponseLine = response.substr(0, response.find("\r\n"));
         return RawConnectionResult::Responded;
     }
@@ -112,7 +115,6 @@ public:
 private:
     boost::asio::ip::tcp::socket socket;
     boost::system::error_code connectError;
-    std::array<char, 4096> responseData{};
 };
 
 } // namespace raw_connection
