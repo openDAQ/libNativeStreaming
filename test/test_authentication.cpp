@@ -174,9 +174,10 @@ TEST_F(AuthenticationTest, UserContext)
     onNewServerSessionCallback = [this, &userContextStr](std::shared_ptr<Session> session)
     {
         serverSession = session;
-        serverConnectedPromise.set_value();
         auto userContext = session->getUserContext();
         userContextStr = *std::static_pointer_cast<std::string>(userContext);
+        // signal only after the context is stored, the test thread reads it right after the wait
+        serverConnectedPromise.set_value();
     };
 
     auto authCallback = [this](const Authentication& authentication, std::shared_ptr<void>& userContextOut)
