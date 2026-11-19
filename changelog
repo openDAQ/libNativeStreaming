@@ -52,6 +52,24 @@
 ## v1.0.15
  - Fix issue with retrieving connection endpoint name on server app resuming in debug mode
 
+## v1.0.16
+ - Fix MSVC 2017 warning
+
+## v1.0.17
+ - Provide connection endpoint address and port separately
+
+## v1.0.18
+ - Use unsigned short as type for endpoint port number
+
+## v1.0.19
+ - Fix MSVC 32 bit debug configuration runtime crash
+ - Increase read message size limit to 256 MB to align it with the native transport protocol
+
 ## v1.0.20
  - Bump boost version to 1.90.0
+
+## v1.0.21
  - Add precompiled headers and unity builds through opendaq-cmake-utils v1.1.0; CI moved to the openDAQ-CI reusable workflow
+
+## v1.0.22
+ - Fix server connection accept path robustness: accept the next connection without waiting for the upgrade request, drop clients that do not send one within 5 s and reject upgrade requests with a body
