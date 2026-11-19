@@ -6,6 +6,7 @@
 #include "test_connection.hpp"
 
 #include <future>
+#include <atomic>
 
 using namespace daq::native_streaming;
 
@@ -499,15 +500,16 @@ TEST_P(WriteTimeoutTestP, WriteTimeout)
     };
     serverSession->setWriteTimedOutHandler(onWriteTimeoutCallback);
 
-    size_t actualCompletedWrites = 0;
+    // Shared ownership: write handlers queued past the deadline may still run after the test body returns
+    auto actualCompletedWrites = std::make_shared<std::atomic<size_t>>(0);
 
     // Create the write task with a delay and increment actualCompletedWrites when it finishes
-    auto createWriteTask = [&actualCompletedWrites](PromisePtr writePromise, size_t delayMs, char symbol)
+    auto createWriteTask = [actualCompletedWrites](PromisePtr writePromise, size_t delayMs, char symbol)
     {
         auto data = std::make_shared<char>(symbol);
-        auto writeHandler = [data, writePromise, delayMs, &actualCompletedWrites]()
+        auto writeHandler = [data, writePromise, delayMs, actualCompletedWrites]()
         {
-            actualCompletedWrites++;
+            (*actualCompletedWrites)++;
             writePromise->set_value();
             std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
         };
@@ -536,7 +538,7 @@ TEST_P(WriteTimeoutTestP, WriteTimeout)
     }
 
     // Verify that the actual completed writes match the expected number
-    EXPECT_EQ(actualCompletedWrites, expectedCompletedWrites);
+    EXPECT_EQ(actualCompletedWrites->load(), expectedCompletedWrites);
 
     // If fewer writes were completed than scheduled, verify that the timeout occurred
     if (expectedCompletedWrites < numBatchedWrites)
