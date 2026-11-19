@@ -5,6 +5,7 @@ set(TEST_HEADERS test_base.hpp
 )
 
 set(TEST_SOURCES test_server.cpp
+                 test_server_accept.cpp
                  test_client.cpp
                  test_tasks.cpp
                  test_connection.cpp
