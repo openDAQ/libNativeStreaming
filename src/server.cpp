@@ -2,6 +2,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/v6_only.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
+#include <boost/beast/http/parser.hpp>
 #include <native_streaming/utils/boost_compatibility_utils.hpp>
 #include <chrono>
 
@@ -148,8 +149,13 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
 
     // Per-connection accept state (not shared members): prevents stale bytes from poisoning
     // later connections and avoids overlapping reads corrupting a shared buffer.
-    auto buffer = std::make_shared<boost::beast::flat_buffer>();
-    auto request = std::make_shared<boost::beast::http::request<boost::beast::http::string_body>>();
+    // The raw read buffer is capped too; the parser's header limit (8 KB) keeps a valid request well below it.
+    auto buffer = std::make_shared<boost::beast::flat_buffer>(16 * 1024);
+    auto parser = std::make_shared<boost::beast::http::request_parser<boost::beast::http::string_body>>();
+    // An upgrade request is a GET without a body, so a request with a body is rejected instead of buffered.
+    // Without this, the parser's default request body limit (1 MB) would let any client make the server
+    // hold up to 1 MB per pending connection until the pre-upgrade read times out.
+    parser->body_limit(0);
 
     // Bound the pre-upgrade read so a client that connects but never sends a request
     // cannot park the socket (and its buffers) indefinitely.
@@ -157,14 +163,14 @@ void Server::onAcceptTcpConnection(boost::asio::ip::tcp::acceptor& tcpAcceptor,
 
     boost::beast::http::async_read(wsStream->next_layer(),
                                    *buffer,
-                                   *request,
-                                   [this, weak_self = weak_from_this(), wsStream, buffer, request](const boost::system::error_code& ec, size_t /*size*/)
+                                   *parser,
+                                   [this, weak_self = weak_from_this(), wsStream, buffer, parser](const boost::system::error_code& ec, size_t /*size*/)
                                    {
                                        if (auto sharedSelf = weak_self.lock())
                                        {
                                            // The websocket layer manages its own timeouts after upgrade.
                                            boost::beast::get_lowest_layer(*wsStream).expires_never();
-                                           onReadAcceptRequest(ec, wsStream, *request);
+                                           onReadAcceptRequest(ec, wsStream, parser->get());
                                        }
                                    });
 }
@@ -175,7 +181,8 @@ void Server::onReadAcceptRequest(const boost::system::error_code& ec,
 {
     if (ec)
     {
-        NS_LOG_E("Failed to read connect request headers {}", ec.message());
+        // Any client can trigger this (malformed, oversized or silent request), so it is logged at debug level only
+        NS_LOG_D("Failed to read connect request headers {}", ec.message());
         return;
     }
 

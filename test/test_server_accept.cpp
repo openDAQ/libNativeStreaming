@@ -197,6 +197,19 @@ TEST_F(ServerAcceptTest, MalformedRequestDoesNotPoisonLaterConnections)
     }
 }
 
+// A request announcing a body must be dropped right after its headers, without the server waiting to buffer the body
+TEST_F(ServerAcceptTest, RequestWithBodyIsDropped)
+{
+    std::string request = upgradeToWebsocketRequest();
+    // Announce a 1 MB body after the headers, but send none of it
+    request.insert(request.size() - 2, "Content-Length: 1048576\r\n");
+
+    RawTcpConnection withBody(*ioContextPtrClient, serverEndpoint());
+    ASSERT_TRUE(withBody.isConnected());
+    // Well below the 5 s pre-upgrade read timeout: only an immediate rejection passes
+    ASSERT_EQ(withBody.exchange(request, TEST_TIMEOUT), RawConnectionResult::DroppedByServer);
+}
+
 // A client connecting without sending a request must not block the upgrade of other connections
 TEST_F(ServerAcceptTest, SilentClientDoesNotBlockOtherConnections)
 {
