@@ -3,10 +3,14 @@
 #include <boost/asio/ip/v6_only.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/beast/http/parser.hpp>
+#include <boost/beast/http/write.hpp>
 #include <native_streaming/utils/boost_compatibility_utils.hpp>
 #include <chrono>
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
+
+/// Value of the Server header in every reply to an upgrade request, accepted (101) or rejected (401)
+static constexpr const char* SERVER_IDENTITY = BOOST_BEAST_VERSION_STRING " openDAQ-streaming-server";
 
 Server::Server(OnNewSessionCallback onNewSessionCallback,
                OnAuthenticateCallback onAuthenticateCallback,
@@ -205,13 +209,14 @@ void Server::onReadAcceptRequest(const boost::system::error_code& ec,
     if (!onAuthenticateCallback(authentication, userContext))
     {
         NS_LOG_I("Websocket authenticaiton failed");
+        rejectUnauthorized(wsStream, request.version());
         return;
     }
 
     // Set a decorator to change the Server-Agent of the handshake
     wsStream->set_option(boost::beast::websocket::stream_base::decorator(
         [](boost::beast::websocket::response_type& res)
-        { res.set(boost::beast::http::field::server, std::string(BOOST_BEAST_VERSION_STRING) + " openDAQ-streaming-server"); }));
+        { res.set(boost::beast::http::field::server, SERVER_IDENTITY); }));
 
     // Accept the upgrade request
     boost_compatibility_utils::async_accept(*wsStream,
@@ -221,6 +226,38 @@ void Server::onReadAcceptRequest(const boost::system::error_code& ec,
                                                 if (auto shared_self = weak_self.lock())
                                                     onUpgradeConnection(ecc, wsStream, userContext);
                                             });
+}
+
+void Server::rejectUnauthorized(const std::shared_ptr<WebsocketStream>& wsStream, unsigned httpVersion)
+{
+    auto response = std::make_shared<boost::beast::http::response<boost::beast::http::string_body>>(
+        boost::beast::http::status::unauthorized, httpVersion);
+    response->set(boost::beast::http::field::server, SERVER_IDENTITY);
+    response->set(boost::beast::http::field::www_authenticate, "Basic");
+    response->keep_alive(false);
+    response->prepare_payload();
+
+    // Bound the write so a client that stops reading cannot keep the rejected connection open.
+    boost::beast::get_lowest_layer(*wsStream).expires_after(std::chrono::seconds(5));
+
+    boost::beast::http::async_write(wsStream->next_layer(),
+                                    *response,
+                                    [this, weak_self = weak_from_this(), wsStream, response](const boost::system::error_code& ec, size_t /*size*/)
+                                    {
+                                        if (auto sharedSelf = weak_self.lock())
+                                        {
+                                            if (ec)
+                                                NS_LOG_W("Failed to send authentication rejection response: {}", ec.message());
+
+                                            // A graceful close sends the 401 first and only then the FIN, so the client
+                                            // reads the full response before it sees the connection closed.
+                                            // Compliant websocket clients send nothing after the upgrade request until
+                                            // they get the response (RFC 6455), so no unread data is pending here.
+                                            // A non-compliant client that already sent more data gets a reset instead
+                                            // of FIN and may miss the 401 - accepted, the extra bytes are not drained.
+                                            boost::beast::get_lowest_layer(*wsStream).close();
+                                        }
+                                    });
 }
 
 void Server::onUpgradeConnection(const boost::system::error_code& ec,

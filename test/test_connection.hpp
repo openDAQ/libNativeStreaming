@@ -100,7 +100,7 @@ public:
         onConnectFailedCallback = [this](const boost::system::error_code& ec)
         { ADD_FAILURE() << "Connection failed: " << ec.message(); };
 
-        onHandshakeFailedCallback = [this](const boost::system::error_code& ec)
+        onHandshakeFailedCallback = [this](const boost::system::error_code& ec, const std::shared_ptr<const HandshakeResponse>&)
         { ADD_FAILURE() << "Handshake failed: " << ec.message(); };
     }
 
@@ -149,7 +149,7 @@ protected:
 
     OnCompleteCallback onConnectFailedCallback;
     OnCompleteCallback onResolveFailedCallback;
-    OnCompleteCallback onHandshakeFailedCallback;
+    OnHandshakeFailCallback onHandshakeFailedCallback;
     Authentication authentication;
 };
 
