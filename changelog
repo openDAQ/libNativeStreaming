@@ -73,3 +73,7 @@
 
 ## v1.0.22
  - Fix server connection accept path robustness: accept the next connection without waiting for the upgrade request, drop clients that do not send one within 5 s and reject upgrade requests with a body
+
+## v1.0.23
+ - Reply with HTTP 401 when server rejects authentication
+ - Pass server's handshake reply to the client's handshake failure callback
