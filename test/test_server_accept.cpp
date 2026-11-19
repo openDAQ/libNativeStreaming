@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include <native_streaming/logging.hpp>
 #include "test_base.hpp"
+#include "test_connection.hpp"
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/write.hpp>
@@ -229,3 +230,51 @@ TEST_F(ServerAcceptTest, SilentClientIsDisconnected)
     ASSERT_TRUE(silent.isConnected());
     ASSERT_EQ(silent.readFromServer(std::chrono::seconds(10)), RawConnectionResult::DroppedByServer);
 }
+
+#if NATIVE_STREAMING_ENABLE_TLS
+
+/// The same checks for a TLS listener. The silent client opens a TCP connection and never starts the TLS handshake.
+class TlsServerAcceptTest : public ConnectionTestTlsDefaults
+{
+public:
+    void SetUp() override
+    {
+        transportMode = TransportMode::Tls;
+        ConnectionTestTlsDefaults::SetUp();
+    }
+
+    boost::asio::ip::tcp::endpoint serverEndpoint() const
+    {
+        return {boost::asio::ip::make_address(CONNECTION_HOST), CONNECTION_PORT};
+    }
+
+    /// Shorter than the 5 s the server gives a silent connection
+    const std::chrono::milliseconds TEST_TIMEOUT = std::chrono::milliseconds(2000);
+};
+
+// A client connecting to the TLS port without starting the TLS handshake must not block other connections
+TEST_F(TlsServerAcceptTest, SilentClientDoesNotBlockOtherConnections)
+{
+    auto server = createServer();
+
+    RawTcpConnection silent(*ioContextPtrClient, serverEndpoint());
+    ASSERT_TRUE(silent.isConnected());
+
+    auto client = createClient();
+    client->connect();
+
+    ASSERT_EQ(clientConnectedFuture.wait_for(TEST_TIMEOUT), std::future_status::ready);
+    ASSERT_EQ(serverConnectedFuture.wait_for(TEST_TIMEOUT), std::future_status::ready);
+}
+
+// A client connecting to the TLS port without starting the TLS handshake must be disconnected by the server eventually
+TEST_F(TlsServerAcceptTest, SilentClientIsDisconnected)
+{
+    auto server = createServer();
+
+    RawTcpConnection silent(*ioContextPtrClient, serverEndpoint());
+    ASSERT_TRUE(silent.isConnected());
+    ASSERT_EQ(silent.readFromServer(std::chrono::seconds(10)), RawConnectionResult::DroppedByServer);
+}
+
+#endif

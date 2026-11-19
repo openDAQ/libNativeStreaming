@@ -6,7 +6,7 @@ BEGIN_NAMESPACE_NATIVE_STREAMING
 
 using namespace boost::asio::detail;
 
-AsyncWriter::AsyncWriter(boost::asio::io_context& ioContextRef, std::shared_ptr<WebsocketStream> wsStream, LogCallback logCallback)
+AsyncWriter::AsyncWriter(boost::asio::io_context& ioContextRef, std::shared_ptr<IWsStream> wsStream, LogCallback logCallback)
     : wsStream(wsStream)
     , logCallback(logCallback)
     , ioContextRef(ioContextRef)
@@ -69,20 +69,6 @@ void AsyncWriter::queueBatchWrite(BatchedWriteTasks&& tasks, OptionalWriteDeadli
     }
 }
 
-#if !defined(NDEBUG) && defined(_MSC_VER) && UINTPTR_MAX == 0xFFFFFFFF
-
-struct __declspec(align(16)) const_buffer_small_vector_type : boost::container::small_vector<boost::asio::const_buffer, 16>
-{
-};
-
-using const_buffer_small_vector = const_buffer_small_vector_type;
-
-#else
-
-using const_buffer_small_vector = boost::container::small_vector<boost::asio::const_buffer, 16>;
-
-#endif
-
 void AsyncWriter::doWrite(const BatchedWriteTasksWithDeadline& tasksWithDeadline)
 {
     if (timeoutReached)
@@ -97,12 +83,12 @@ void AsyncWriter::doWrite(const BatchedWriteTasksWithDeadline& tasksWithDeadline
         buffers.push_back(task.getBuffer());
     }
 
-    wsStream->async_write(buffers,
-                          strand.wrap(
-                              [this, shared_self = shared_from_this()](const boost::system::error_code& ec, std::size_t size)
-                              {
-                                  writeDone(ec, size);
-                              }));
+    wsStream->asyncWrite(buffers,
+                         strand.wrap(
+                             [this, shared_self = shared_from_this()](const boost::system::error_code& ec, std::size_t size)
+                             {
+                                 writeDone(ec, size);
+                             }));
 }
 
 void AsyncWriter::writeDone(const boost::system::error_code& ec, [[maybe_unused]] std::size_t size)

@@ -24,10 +24,27 @@ jobs:
           "windows-2022-x86_64-msvs-v143-debug",
           "windows-2022-x86_64-msvs-v143-release"
         ]
+      # OpenSSL is the only dependency which is not fetched, and the TLS channel needs it. Installed the
+      # way openDAQ does it: from the distribution on Linux, from vcpkg on Windows
+      packages: >
+        [
+          {
+            "match-jobs": ["ubuntu-*"],
+            "apt-install": ["libssl-dev"]
+          },
+          {
+            "match-jobs": ["windows-*"],
+            "vcpkg-install": ["openssl"]
+          }
+        ]
       cmake-presets: >
         [
           {
             "configure-preset": "ci",
             "test-preset": "ci-test"
+          },
+          {
+            "match-jobs": ["windows-*-x86_64-*"],
+            "cache-variables": {"OPENSSL_ROOT_DIR": "C:/vcpkg/installed/x64-windows"}
           }
         ]
