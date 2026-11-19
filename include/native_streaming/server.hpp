@@ -19,6 +19,7 @@
 #include <native_streaming/common.hpp>
 #include <native_streaming/session.hpp>
 #include <native_streaming/authentication.hpp>
+#include <boost/beast/http/parser.hpp>
 
 #if NATIVE_STREAMING_ENABLE_TLS
 #include <native_streaming/tls.hpp>
@@ -100,7 +101,7 @@ protected:
     };
 
     /// @brief per-connection state of the accept step: the web-socket stream being set up along with
-    /// the buffer and the request object used to read the connect request headers into.
+    /// the buffer and the parser used to read the connect request headers.
     /// One object is created for each accepted Tcp connection and is kept alive by the completion
     /// handlers of the accept sequence until the web-socket handshake is done, so that concurrently
     /// accepted connections never share it.
@@ -110,16 +111,21 @@ protected:
         explicit AcceptOp(std::shared_ptr<Stream> wsStream)
             : wsStream(std::move(wsStream))
         {
+            // An upgrade request is a GET without a body, so a request with a body is rejected instead of buffered.
+            // Without this, the parser's default request body limit (1 MB) would let any client make the server
+            // hold up to 1 MB per pending connection until the pre-upgrade read times out.
+            parser.body_limit(0);
         }
 
         /// @brief web-socket stream object which provides as a R/W interface for connection
         std::shared_ptr<Stream> wsStream;
 
-        /// @brief buffer for reading request headers during accept step
-        boost::asio::streambuf buffer;
+        /// @brief buffer for reading request headers during accept step. It is capped; the parser's
+        /// header limit (8 KB) keeps a valid request well below it
+        boost::beast::flat_buffer buffer{16 * 1024};
 
-        /// @brief object for holding request parameters during accept step
-        boost::beast::http::request<boost::beast::http::string_body> request;
+        /// @brief parser holding the request parameters during accept step
+        boost::beast::http::request_parser<boost::beast::http::string_body> parser;
     };
 
     /// @brief callback called when new Tcp connection acception finished by server
@@ -135,7 +141,7 @@ protected:
     /// @brief callback called when connect request headers have been read by the server
     /// @param ec error_code object indicates if headers were read successfuly
     /// @param acceptOp per-connection state of the accept step, holds the web-socket stream and the
-    /// request object the headers were read into
+    /// parser the headers were read into
     template <typename Stream>
     void onReadAcceptRequest(const boost::system::error_code& ec, const std::shared_ptr<AcceptOp<Stream>>& acceptOp);
 
@@ -169,13 +175,9 @@ private:
 
     /// @brief starts the TLS handshake, which an encrypted connection performs before the connect
     /// request headers can be read
-    /// @param listener the listener which accepted the connection
-    /// @param tcpAcceptor Tcp acceptor which accepted the connection, owned by the listener
     /// @param acceptOp per-connection state of the accept step
     template <typename Stream>
-    void startTlsHandshake(const std::shared_ptr<Listener>& listener,
-                           boost::asio::ip::tcp::acceptor& tcpAcceptor,
-                           std::shared_ptr<AcceptOp<Stream>> acceptOp);
+    void startTlsHandshake(std::shared_ptr<AcceptOp<Stream>> acceptOp);
 
     /// @brief closes a connection the server rejected without resetting it: shuts down the sending
     /// side, then reads and discards what the client sends until it closes or a timeout expires
@@ -190,15 +192,10 @@ private:
 
 #endif
 
-    /// @brief starts reading the connect request headers, and accepts the next connection once they
-    /// have been read
-    /// @param listener the listener which accepted the connection
-    /// @param tcpAcceptor Tcp acceptor which accepted the connection, owned by the listener
+    /// @brief starts reading the connect request headers
     /// @param acceptOp per-connection state of the accept step
     template <typename Stream>
-    void startReadAcceptRequest(const std::shared_ptr<Listener>& listener,
-                                boost::asio::ip::tcp::acceptor& tcpAcceptor,
-                                std::shared_ptr<AcceptOp<Stream>> acceptOp);
+    void startReadAcceptRequest(std::shared_ptr<AcceptOp<Stream>> acceptOp);
 
     /// @brief creates a connection Session using provided web-socket stream object
     /// @param wsStream web-socket stream object which provides as a R/W interface for connection

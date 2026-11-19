@@ -1,6 +1,8 @@
 #include <native_streaming/server.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/v6_only.hpp>
+#include <boost/beast/core/flat_buffer.hpp>
+#include <boost/beast/http/parser.hpp>
 #include <native_streaming/utils/boost_compatibility_utils.hpp>
 #include "ws_stream_impl.hpp"
 
@@ -14,15 +16,18 @@
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
-#if NATIVE_STREAMING_ENABLE_TLS
 namespace
 {
 
+/// @brief how long a new connection may take to send its connect request, the TLS handshake included
+constexpr auto acceptRequestTimeout = std::chrono::seconds(5);
+
+#if NATIVE_STREAMING_ENABLE_TLS
 /// @brief how long the server waits for the client of a rejected connection to close it
 constexpr auto rejectedConnectionDrainTimeout = std::chrono::seconds(1);
+#endif
 
 }
-#endif
 
 Server::Server(OnNewSessionCallback onNewSessionCallback,
                OnAuthenticateCallback onAuthenticateCallback,
@@ -225,31 +230,40 @@ void Server::onAcceptTcpConnection(const std::shared_ptr<Listener>& listener,
 
     NS_LOG_T("server accepting new connection");
 
+    // Re-arm the acceptor immediately: each connection is independent and must not
+    // wait for this one's upgrade request to arrive (a silent client must not block others).
+    // Safe because the transport io_context is single-threaded; add a strand here if that changes.
+    startTcpAccept(listener, tcpAcceptor);
+
 #if NATIVE_STREAMING_ENABLE_TLS
     if (listener->sslContext)
     {
         auto wsStream = std::make_shared<TlsWebsocketStream>(std::move(socket), *listener->sslContext);
         applyStreamLimits(*wsStream);
-        startTlsHandshake(listener, tcpAcceptor, std::make_shared<AcceptOp<TlsWebsocketStream>>(wsStream));
+        // Bound the TLS handshake and the pre-upgrade read so a client that connects but never sends
+        // a request cannot park the socket (and its buffers) indefinitely.
+        boost::beast::get_lowest_layer(*wsStream).expires_after(acceptRequestTimeout);
+        startTlsHandshake(std::make_shared<AcceptOp<TlsWebsocketStream>>(wsStream));
         return;
     }
 #endif
 
     auto wsStream = std::make_shared<WebsocketStream>(std::move(socket));
     applyStreamLimits(*wsStream);
-    startReadAcceptRequest(listener, tcpAcceptor, std::make_shared<AcceptOp<WebsocketStream>>(wsStream));
+    // Bound the pre-upgrade read so a client that connects but never sends a request
+    // cannot park the socket (and its buffers) indefinitely.
+    boost::beast::get_lowest_layer(*wsStream).expires_after(acceptRequestTimeout);
+    startReadAcceptRequest(std::make_shared<AcceptOp<WebsocketStream>>(wsStream));
 }
 
 #if NATIVE_STREAMING_ENABLE_TLS
 
 template <typename Stream>
-void Server::startTlsHandshake(const std::shared_ptr<Listener>& listener,
-                               boost::asio::ip::tcp::acceptor& tcpAcceptor,
-                               std::shared_ptr<AcceptOp<Stream>> acceptOp)
+void Server::startTlsHandshake(std::shared_ptr<AcceptOp<Stream>> acceptOp)
 {
     acceptOp->wsStream->next_layer().async_handshake(
         boost::asio::ssl::stream_base::server,
-        [this, weak_self = weak_from_this(), listener, &tcpAcceptor, acceptOp](const boost::system::error_code& ec)
+        [this, weak_self = weak_from_this(), acceptOp](const boost::system::error_code& ec)
         {
             auto shared_self = weak_self.lock();
             if (!shared_self)
@@ -258,12 +272,11 @@ void Server::startTlsHandshake(const std::shared_ptr<Listener>& listener,
             if (ec)
             {
                 NS_LOG_W("TLS handshake with a client failed: {}", ec.message());
-                startTcpAccept(listener, tcpAcceptor);
                 closeRejectedConnection(acceptOp);
                 return;
             }
 
-            startReadAcceptRequest(listener, tcpAcceptor, acceptOp);
+            startReadAcceptRequest(acceptOp);
         });
 }
 
@@ -299,20 +312,18 @@ void Server::drainRejectedConnection(std::shared_ptr<AcceptOp<Stream>> acceptOp)
 #endif
 
 template <typename Stream>
-void Server::startReadAcceptRequest(const std::shared_ptr<Listener>& listener,
-                                    boost::asio::ip::tcp::acceptor& tcpAcceptor,
-                                    std::shared_ptr<AcceptOp<Stream>> acceptOp)
+void Server::startReadAcceptRequest(std::shared_ptr<AcceptOp<Stream>> acceptOp)
 {
     boost::beast::http::async_read(acceptOp->wsStream->next_layer(),
                                    acceptOp->buffer,
-                                   acceptOp->request,
-                                   [this, weak_self = weak_from_this(), listener, &tcpAcceptor, acceptOp](
-                                       const boost::system::error_code& ec, size_t /*size*/)
+                                   acceptOp->parser,
+                                   [this, weak_self = weak_from_this(), acceptOp](const boost::system::error_code& ec, size_t /*size*/)
                                    {
                                        if (auto shared_self = weak_self.lock())
                                        {
+                                           // The websocket layer manages its own timeouts after upgrade.
+                                           boost::beast::get_lowest_layer(*acceptOp->wsStream).expires_never();
                                            onReadAcceptRequest(ec, acceptOp);
-                                           startTcpAccept(listener, tcpAcceptor);
                                        }
                                    });
 }
@@ -322,12 +333,13 @@ void Server::onReadAcceptRequest(const boost::system::error_code& ec, const std:
 {
     if (ec)
     {
-        NS_LOG_E("Failed to read connect request headers {}", ec.message());
+        // Any client can trigger this (malformed, oversized or silent request), so it is logged at debug level only
+        NS_LOG_D("Failed to read connect request headers {}", ec.message());
         return;
     }
 
     const auto& wsStream = acceptOp->wsStream;
-    auto& request = acceptOp->request;
+    auto& request = acceptOp->parser.get();
 
     auto authentication = Authentication();
 
