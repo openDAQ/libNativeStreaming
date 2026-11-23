@@ -108,12 +108,6 @@ private:
 
     /// Tcp connection acceptor binded to IPv6
     boost::asio::ip::tcp::acceptor tcpAcceptorV6;
-
-    /// Buffer for reading request headers during accept step
-    boost::asio::streambuf acceptBuffer;
-
-    /// Object for holding request parameters during accept step
-    boost::beast::http::request<boost::beast::http::string_body> acceptRequest;
 };
 
 END_NAMESPACE_NATIVE_STREAMING
