@@ -41,7 +41,8 @@ jobs:
         [
           {
             "configure-preset": "ci",
-            "test-preset": "ci-test"
+            "test-preset": "ci-test",
+            "cache-variables": {"NATIVE_STREAMING_ENABLE_TLS": "ON"}
           },
           {
             "match-jobs": ["windows-*-x86_64-*"],
