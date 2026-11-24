@@ -1,5 +1,6 @@
 #include <native_streaming/client.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/post.hpp>
 #include <native_streaming/utils/boost_compatibility_utils.hpp>
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
@@ -33,6 +34,17 @@ Client::Client(const std::string& host,
 Client::~Client()
 {
     connectionTimeoutTimer.cancel();
+
+    // The stream is only set while a connection attempt is in flight. Its handler holds the stream too, so
+    // the attempt is closed here; it would otherwise stay pending until the peer or the system gives up.
+    if (websocketStream)
+    {
+        boost::asio::post(*ioContextPtr,
+                          [stream = std::move(websocketStream)]()
+                          {
+                              stream->next_layer().close();
+                          });
+    }
     NS_LOG_I("Shutting down the client");
 }
 
