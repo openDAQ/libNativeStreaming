@@ -3,7 +3,7 @@
 
 BEGIN_NAMESPACE_NATIVE_STREAMING
 
-AsyncReader::AsyncReader(boost::asio::io_context& ioContextRef, std::shared_ptr<WebsocketStream> wsStream, LogCallback logCallback)
+AsyncReader::AsyncReader(boost::asio::io_context& ioContextRef, std::shared_ptr<IWsStream> wsStream, LogCallback logCallback)
     : wsStream(wsStream)
     , logCallback(logCallback)
     , ioContextRef(ioContextRef)
@@ -22,7 +22,7 @@ void AsyncReader::read(std::size_t bytesToRead, OnRWCallback onReadCallback)
     else
     {
         bytesToRead = bytesToRead - bytesReady;
-        boost::asio::async_read(*wsStream, buffer, boost::asio::transfer_at_least(bytesToRead), onReadCallback);
+        wsStream->asyncReadAtLeast(buffer, bytesToRead, onReadCallback);
     }
 }
 

@@ -15,6 +15,18 @@ namespace boost_compatibility_utils
         stream.async_handshake(host, target, handler);
     }
 
+#if NATIVE_STREAMING_ENABLE_TLS
+
+    void async_handshake(TlsWebsocketStream& stream,
+                         const std::string& host,
+                         const std::string& target,
+                         const BoostHandler& handler)
+    {
+        stream.async_handshake(host, target, handler);
+    }
+
+#endif
+
     void async_accept(WebsocketStream& websocket, const BoostHandler& handler)
     {
         websocket.async_accept(handler);
@@ -26,6 +38,17 @@ namespace boost_compatibility_utils
     {
         websocket.async_accept(request, handler);
     }
+
+#if NATIVE_STREAMING_ENABLE_TLS
+
+    void async_accept(TlsWebsocketStream& websocket,
+                      boost::beast::http::request<boost::beast::http::string_body>& request,
+                      const BoostHandler& handler)
+    {
+        websocket.async_accept(request, handler);
+    }
+
+#endif
 
     void async_write(boost::beast::tcp_stream& stream,
         boost::beast::http::request<boost::beast::http::string_body>& request, WriteCallback callback)
