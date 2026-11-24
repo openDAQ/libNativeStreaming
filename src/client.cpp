@@ -85,20 +85,34 @@ Client::Client(const std::string& host,
 
 #endif
 
+namespace
+{
+
+template <typename Stream>
+void postClose(boost::asio::io_context& ioContext, std::shared_ptr<Stream> stream)
+{
+    if (!stream)
+        return;
+
+    boost::asio::post(ioContext,
+                      [stream = std::move(stream)]()
+                      {
+                          boost::beast::get_lowest_layer(*stream).close();
+                      });
+}
+
+}
+
 Client::~Client()
 {
     connectionTimeoutTimer.cancel();
 
-    // The stream is only set while a connection attempt is in flight. Its handler holds the stream too, so
-    // the attempt is closed here; it would otherwise stay pending until the peer or the system gives up.
-    if (websocketStream)
-    {
-        boost::asio::post(*ioContextPtr,
-                          [stream = std::move(websocketStream)]()
-                          {
-                              stream->next_layer().close();
-                          });
-    }
+    // Closes an attempt still in flight, which would otherwise stay pending until the peer or the system gives up.
+    // A session already owns its stream. Posted, as the destructor may run outside the io_context thread.
+    postClose(*ioContextPtr, std::move(websocketStream));
+#if NATIVE_STREAMING_ENABLE_TLS
+    postClose(*ioContextPtr, std::move(tlsWebsocketStream));
+#endif
     NS_LOG_I("Shutting down the client");
 }
 
