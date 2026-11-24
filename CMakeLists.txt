@@ -11,7 +11,7 @@ endif()
 get_filename_component(ROOT_DIR ${CMAKE_SOURCE_DIR} REALPATH)
 
 option(NATIVE_STREAMING_ENABLE_TESTS "Enable unit-tests" OFF)
-option(NATIVE_STREAMING_ENABLE_TLS "Enable the TLS encrypted channel" ON)
+option(NATIVE_STREAMING_ENABLE_TLS "Enable the TLS encrypted channel" OFF)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
