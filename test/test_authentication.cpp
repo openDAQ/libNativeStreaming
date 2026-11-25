@@ -30,7 +30,11 @@ public:
     std::shared_ptr<Client> createClient(const Authentication& authentication)
     {
         // on failed authentication we should stop waiting for client session
-        auto onHandshakeFailedCallback = [this](const boost::system::error_code& e) { clientConnectedPromise.set_value(); };
+        auto onHandshakeFailedCallback = [this](const boost::system::error_code& e, const std::shared_ptr<const HandshakeResponse>& response)
+        {
+            handshakeResponse = response;
+            clientConnectedPromise.set_value();
+        };
 
         auto client = std::make_shared<Client>(CONNECTION_HOST,
                                                std::to_string(CONNECTION_PORT),
@@ -55,9 +59,13 @@ public:
     void resetSessions()
     {
         ResetFuturePromise();
+        handshakeResponse.reset();
         serverSession.reset();
         clientSession.reset();
     }
+
+    /// server's reply reported to the client's handshake failure callback
+    std::shared_ptr<const HandshakeResponse> handshakeResponse;
 };
 
 
@@ -97,6 +105,8 @@ TEST_F(AuthenticationTest, DenyAll)
     waitForConnection();
     ASSERT_FALSE(serverSession.operator bool());
     ASSERT_FALSE(clientSession.operator bool());
+    ASSERT_TRUE(handshakeResponse);
+    ASSERT_EQ(handshakeResponse->result(), boost::beast::http::status::unauthorized);
     resetSessions();
 
     client = createClient(Authentication());
@@ -105,6 +115,8 @@ TEST_F(AuthenticationTest, DenyAll)
     waitForConnection();
     ASSERT_FALSE(serverSession.operator bool());
     ASSERT_FALSE(clientSession.operator bool());
+    ASSERT_TRUE(handshakeResponse);
+    ASSERT_EQ(handshakeResponse->result(), boost::beast::http::status::unauthorized);
 }
 
 TEST_F(AuthenticationTest, AllowCorrect)

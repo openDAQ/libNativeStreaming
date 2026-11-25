@@ -8,21 +8,23 @@ BEGIN_NAMESPACE_STREAM_UTILS
 namespace boost_compatibility_utils
 {
     void async_handshake(WebsocketStream& stream,
+                         boost::beast::websocket::response_type& response,
                          const std::string& host,
                          const std::string& target,
                          const BoostHandler& handler)
     {
-        stream.async_handshake(host, target, handler);
+        stream.async_handshake(response, host, target, handler);
     }
 
 #if NATIVE_STREAMING_ENABLE_TLS
 
     void async_handshake(TlsWebsocketStream& stream,
+                         boost::beast::websocket::response_type& response,
                          const std::string& host,
                          const std::string& target,
                          const BoostHandler& handler)
     {
-        stream.async_handshake(host, target, handler);
+        stream.async_handshake(response, host, target, handler);
     }
 
 #endif

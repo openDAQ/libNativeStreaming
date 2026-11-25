@@ -197,6 +197,13 @@ private:
     template <typename Stream>
     void startReadAcceptRequest(std::shared_ptr<AcceptOp<Stream>> acceptOp);
 
+    /// @brief replies to a rejected upgrade request with HTTP 401 Unauthorized and closes the connection,
+    /// so the client can tell rejected authentication apart from other connection failures
+    /// @param wsStream web-socket stream object of the rejected connection
+    /// @param httpVersion HTTP version of the rejected upgrade request
+    template <typename Stream>
+    void rejectUnauthorized(const std::shared_ptr<Stream>& wsStream, unsigned httpVersion);
+
     /// @brief creates a connection Session using provided web-socket stream object
     /// @param wsStream web-socket stream object which provides as a R/W interface for connection
     /// @param user context, usualy a pointer to the authenticated user object
