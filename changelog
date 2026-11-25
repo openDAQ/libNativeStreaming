@@ -54,4 +54,21 @@
 
 ## v1.0.20
  - Bump boost version to 1.90.0
+
+## v1.0.21
  - Add precompiled headers and unity builds through opendaq-cmake-utils v1.1.0; CI moved to the openDAQ-CI reusable workflow
+
+## v1.0.22
+ - Read the upgrade request of each connection into its own buffer, so a malformed request no longer breaks the next connection
+ - Accept further connections without waiting for the upgrade request of the current one
+ - Disconnect a client that sends no upgrade request within 5 s
+
+## v1.0.23
+ - Close a connection attempt still in flight when the client is destroyed
+
+## v1.0.24
+ - Add an optional TLS channel behind the CMake option NATIVE_STREAMING_ENABLE_TLS (OFF by default, requires OpenSSL 1.1.1 or later)
+ - Add Server::startTls() to listen for TLS connections alongside or instead of plaintext ones, with optional mutual TLS
+ - Add a Client constructor taking a ClientTlsConfig, with an optional callback for TLS handshake failures
+ - Make the Session constructor take the transport-neutral IWsStream instead of WebsocketStream
+ - Return address_in_use when the server is asked to listen on a port it already listens on
