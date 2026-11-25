@@ -16,7 +16,8 @@ protected:
 
         // the failures below are what most of these tests are about, so they are recorded rather
         // than reported, and each test states which one it expects
-        onHandshakeFailedCallback = [this](const boost::system::error_code& ec) { recordFailure("handshake", ec); };
+        onHandshakeFailedCallback = [this](const boost::system::error_code& ec, const std::shared_ptr<const HandshakeResponse>&)
+        { recordFailure("handshake", ec); };
         onTlsHandshakeFailedCallback = [this](const boost::system::error_code& ec) { recordFailure("tls", ec); };
         onConnectFailedCallback = [this](const boost::system::error_code& ec) { recordFailure("connect", ec); };
     }

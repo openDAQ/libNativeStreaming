@@ -17,7 +17,8 @@ public:
         clientConnectFailedFuture = clientConnectFailedPromise.get_future();
         onResolveFailedCallback = [this](const boost::system::error_code&) { clientConnectFailedPromise.set_value(); };
         onConnectFailedCallback = [this](const boost::system::error_code&) { clientConnectFailedPromise.set_value(); };
-        onHandshakeFailedCallback = [this](const boost::system::error_code&) { clientConnectFailedPromise.set_value(); };
+        onHandshakeFailedCallback = [this](const boost::system::error_code&, const std::shared_ptr<const HandshakeResponse>&)
+        { clientConnectFailedPromise.set_value(); };
     }
 
     void TearDown() override
@@ -28,7 +29,7 @@ public:
     std::future<void> clientConnectFailedFuture;
     OnCompleteCallback onResolveFailedCallback;
     OnCompleteCallback onConnectFailedCallback;
-    OnCompleteCallback onHandshakeFailedCallback;
+    OnHandshakeFailCallback onHandshakeFailedCallback;
     Authentication authentication;
 
     /// Drops created session

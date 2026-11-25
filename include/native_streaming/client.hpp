@@ -54,6 +54,16 @@ struct ClientTlsConfig
 
 #endif
 
+/// @brief HTTP response sent by the server in reply to the websocket upgrade request
+using HandshakeResponse = boost::beast::websocket::response_type;
+
+/// @brief callback called when the websocket handshake fails
+/// @param ec error_code object indicates handshake failure
+/// @param response the server's reply when it declined the upgrade (ec == websocket::error::upgrade_declined),
+/// e.g. 401 Unauthorized on rejected authentication; nullptr otherwise
+using OnHandshakeFailCallback =
+    std::function<void(const boost::system::error_code& ec, const std::shared_ptr<const HandshakeResponse>& response)>;
+
 /// @brief Connects to specified server address, creates and returns new Session via callback when connection established
 class Client : public std::enable_shared_from_this<Client>
 {
@@ -66,7 +76,7 @@ public:
                     OnNewSessionCallback onNewSessionCallback,
                     OnCompleteCallback onResolveFailCallback,
                     OnCompleteCallback onConnectFailCallback,
-                    OnCompleteCallback onHandshakeFailCallback,
+                    OnHandshakeFailCallback onWsHandshakeFailCallback,
                     std::shared_ptr<boost::asio::io_context> ioContextPtr,
                     LogCallback logCallback);
 
@@ -77,7 +87,7 @@ public:
     /// @param onTlsHandshakeFailCallback callback to be called if a handshake fails with an error
     /// raised by the TLS layer, which means the server was reached but the two could not agree on
     /// trust - unlike the other failures, retrying such a connection with the same secrets is
-    /// pointless. If not set, such failures are reported through onHandshakeFailCallback
+    /// pointless. If not set, such failures are reported through onWsHandshakeFailCallback
     /// @throw std::invalid_argument tlsConfig is inconsistent, e.g. it names a client certificate
     /// without a key
     /// @throw boost::system::system_error a certificate or key file named by tlsConfig is missing or
@@ -89,7 +99,7 @@ public:
                     OnNewSessionCallback onNewSessionCallback,
                     OnCompleteCallback onResolveFailCallback,
                     OnCompleteCallback onConnectFailCallback,
-                    OnCompleteCallback onHandshakeFailCallback,
+                    OnHandshakeFailCallback onWsHandshakeFailCallback,
                     std::shared_ptr<boost::asio::io_context> ioContextPtr,
                     LogCallback logCallback,
                     const ClientTlsConfig& tlsConfig,
@@ -152,13 +162,16 @@ private:
 
     /// @brief reports a failed handshake to the caller
     /// @param ec error_code object describing the failure
-    void reportHandshakeFailure(const boost::system::error_code& ec);
+    void reportHandshakeFailure(const boost::system::error_code& ec, const std::shared_ptr<const HandshakeResponse>& response);
 
     /// @brief callback called when web-socket handshake finished for new connection
     /// @param ec error_code object indicates handshake failure
     /// @param wsStream websocket stream object associated with connection
+    /// @param response the server's reply to the upgrade request
     template <typename Stream>
-    void onUpgradeConnection(const boost::system::error_code& ec, std::shared_ptr<Stream> wsStream);
+    void onUpgradeConnection(const boost::system::error_code& ec,
+                             std::shared_ptr<Stream> wsStream,
+                             const std::shared_ptr<const HandshakeResponse>& response);
 
     /// @brief creates a connection Session using provided web-socket stream object
     /// @param wsStream web-socket stream object which provides as a R/W interface for connection
@@ -221,12 +234,12 @@ private:
     OnCompleteCallback onConnectFailCallback;
 
     /// @brief callback to be called if handshake with a remote server is failed
-    OnCompleteCallback onHandshakeFailCallback;
+    OnHandshakeFailCallback onWsHandshakeFailCallback;
 
 #if NATIVE_STREAMING_ENABLE_TLS
 
     /// @brief callback to be called if a handshake fails with an error raised by the TLS layer.
-    /// May be unset, in which case such failures are reported through onHandshakeFailCallback
+    /// May be unset, in which case such failures are reported through onWsHandshakeFailCallback
     OnCompleteCallback onTlsHandshakeFailCallback;
 
 #endif

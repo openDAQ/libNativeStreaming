@@ -20,7 +20,7 @@ Client::Client(const std::string& host,
                OnNewSessionCallback onNewSessionCallback,
                OnCompleteCallback onResolveFailCallback,
                OnCompleteCallback onConnectFailCallback,
-               OnCompleteCallback onHandshakeFailCallback,
+               OnHandshakeFailCallback onWsHandshakeFailCallback,
                std::shared_ptr<boost::asio::io_context> ioContextPtr,
                LogCallback logCallback)
     : ioContextPtr(ioContextPtr)
@@ -35,7 +35,7 @@ Client::Client(const std::string& host,
     , onNewSessionCallback(onNewSessionCallback)
     , onResolveFailCallback(onResolveFailCallback)
     , onConnectFailCallback(onConnectFailCallback)
-    , onHandshakeFailCallback(onHandshakeFailCallback)
+    , onWsHandshakeFailCallback(onWsHandshakeFailCallback)
 {
 }
 
@@ -48,7 +48,7 @@ Client::Client(const std::string& host,
                OnNewSessionCallback onNewSessionCallback,
                OnCompleteCallback onResolveFailCallback,
                OnCompleteCallback onConnectFailCallback,
-               OnCompleteCallback onHandshakeFailCallback,
+               OnHandshakeFailCallback onWsHandshakeFailCallback,
                std::shared_ptr<boost::asio::io_context> ioContextPtr,
                LogCallback logCallback,
                const ClientTlsConfig& tlsConfig,
@@ -60,7 +60,7 @@ Client::Client(const std::string& host,
              onNewSessionCallback,
              onResolveFailCallback,
              onConnectFailCallback,
-             onHandshakeFailCallback,
+             onWsHandshakeFailCallback,
              ioContextPtr,
              logCallback)
 {
@@ -262,7 +262,7 @@ void Client::onTlsHandshake(const boost::system::error_code& ec, std::shared_ptr
             // the server answered but is not trusted: check its certificate against the configured
             // certificate authority, and the client certificate if the server requires one
             NS_LOG_E("TLS handshake operation failed {}", ec.message());
-            reportHandshakeFailure(ec);
+            reportHandshakeFailure(ec, nullptr);
         }
         return;
     }
@@ -287,17 +287,22 @@ void Client::startTlsHandshake(std::shared_ptr<Stream> wsStream)
 template <typename Stream>
 void Client::startWebsocketHandshake(std::shared_ptr<Stream> wsStream)
 {
+    // Kept so a declined upgrade can be reported together with the server's reply (e.g. 401 Unauthorized).
+    // The server closes the connection right after its reply. This client sends nothing after the upgrade
+    // request (RFC 6455), so the close arrives after the reply as an orderly FIN and the reply is read in full.
+    auto response = std::make_shared<HandshakeResponse>();
+
     auto onHandshakeDone =
-        [this, weak_self = weak_from_this(), wsStream](const boost::system::error_code& ec)
+        [this, weak_self = weak_from_this(), wsStream, response](const boost::system::error_code& ec)
         {
             if (auto shared_self = weak_self.lock())
-                onUpgradeConnection(ec, wsStream);
+                onUpgradeConnection(ec, wsStream, response);
         };
 
-    boost_compatibility_utils::async_handshake(*wsStream, host, path, onHandshakeDone);
+    boost_compatibility_utils::async_handshake(*wsStream, *response, host, path, onHandshakeDone);
 }
 
-void Client::reportHandshakeFailure(const boost::system::error_code& ec)
+void Client::reportHandshakeFailure(const boost::system::error_code& ec, const std::shared_ptr<const HandshakeResponse>& response)
 {
 #if NATIVE_STREAMING_ENABLE_TLS
     // routing by the category of the error rather than by the step that raised it: under TLS 1.3 the
@@ -310,25 +315,37 @@ void Client::reportHandshakeFailure(const boost::system::error_code& ec)
     }
 #endif
 
-    onHandshakeFailCallback(ec);
+    onWsHandshakeFailCallback(ec, response);
 }
 
 template <typename Stream>
-void Client::onUpgradeConnection(const boost::system::error_code& ec, std::shared_ptr<Stream> wsStream)
+void Client::onUpgradeConnection(const boost::system::error_code& ec,
+                                 std::shared_ptr<Stream> wsStream,
+                                 const std::shared_ptr<const HandshakeResponse>& response)
 {
     connectionTimeoutTimer.cancel();
 
     if (ec)
     {
-        if (ec.value() == boost::asio::error::operation_aborted)
+        if (ec == boost::asio::error::operation_aborted)
         {
             NS_LOG_T("Handshake operation cancelled: {}", ec.message());
             onConnectFailCallback(ec);
         }
+        else if (ec == boost::beast::websocket::error::upgrade_declined)
+        {
+            // The server replied with a status other than 101 Switching Protocols (e.g. 401 Unauthorized)
+            NS_LOG_E("Handshake operation failed {}: server replied {} {}", ec.message(), response->result_int(), std::string(response->reason()));
+            reportHandshakeFailure(ec, response);
+        }
         else
         {
+            // No reply with a status to act on: either the connection failed before a reply was read
+            // (closed/reset, not an HTTP service, or an older server that closes the connection on rejected
+            // authentication without replying), so the response is still default-constructed (200 OK),
+            // or the server replied 101 but the reply failed Beast's websocket header checks
             NS_LOG_E("Handshake operation failed {}", ec.message());
-            reportHandshakeFailure(ec);
+            reportHandshakeFailure(ec, nullptr);
         }
         return;
     }

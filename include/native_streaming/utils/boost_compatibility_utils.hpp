@@ -36,6 +36,7 @@ namespace boost_compatibility_utils
     using WriteCallback = std::function<void(boost::beast::error_code ec, std::size_t written)>;
 
     void async_handshake(WebsocketStream& stream,
+        boost::beast::websocket::response_type& response,
         const std::string& host,
         const std::string& target,
         const BoostHandler& handler);
@@ -43,6 +44,7 @@ namespace boost_compatibility_utils
 #if NATIVE_STREAMING_ENABLE_TLS
 
     void async_handshake(TlsWebsocketStream& stream,
+        boost::beast::websocket::response_type& response,
         const std::string& host,
         const std::string& target,
         const BoostHandler& handler);
